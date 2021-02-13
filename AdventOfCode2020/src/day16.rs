@@ -40,18 +40,17 @@ impl Field {
     /// Create a Field from a named set of rules like "seat: 13-40 or 45-50"
     fn compile(s: &String) -> Result<Field, String> {
         // Split name from the ruleset using the ":"
-        let ss:Vec<&str> = s.split(':').collect();
-        if ss.len() < 2 {
-            return Err(String::from("Field error") + s);
+        if let Some((name,desc)) = common::split2(s, ":") {
+            // Split individual ranges on the "or" token.
+            let mut rules:Vec<Range> = Vec::new();
+            for rr in desc.split(" or ") {
+                let rule = Range::compile(rr)?;
+                rules.push(rule);
+            }
+            Ok(Field {name:String::from(name), rules:rules})
+        } else {
+            Err(String::from("Field error") + s)
         }
-        // Split individual ranges on the "or" token.
-        let name = String::from(ss[0]);
-        let mut rules:Vec<Range> = Vec::new();
-        for rr in ss[1].split(" or ") {
-            let rule = Range::compile(rr)?;
-            rules.push(rule);
-        }
-        Ok(Field {name:name, rules:rules})
     }
 
     /// Test if an integer falls within any sub-range.

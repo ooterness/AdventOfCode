@@ -13,17 +13,16 @@ enum Rule {
 }
 
 impl Rule {
-    fn parse(rule:&String) -> Option<Rule> {
+    fn parse(rule:&str) -> Option<Rule> {
         if rule.contains('"') {
             let s:Vec<char> = rule.trim().chars().collect();
             if let Some(c) = s.get(1) {
                 Some(Rule::Simplex(*c))
             } else {None}
         } else if rule.contains('|') {
-            let seq:Vec<&str> = rule.split('|').collect();
-            if let (Some(a), Some(b)) = (seq.get(0), seq.get(1)) {
-                let a = common::parse_vec::<usize>(&String::from(*a), ' ');
-                let b = common::parse_vec::<usize>(&String::from(*b), ' ');
+            if let Some((a,b)) = common::split2(rule, "|") {
+                let a = common::parse_vec::<usize>(&String::from(a), ' ');
+                let b = common::parse_vec::<usize>(&String::from(b), ' ');
                 Some(Rule::EitherOr(a, b))
             } else {None}
         } else {
@@ -38,10 +37,9 @@ type RuleSet = HashMap<usize,Rule>;
 fn parse_rules(lines:&Vec<String>) -> Option<RuleSet> {
     let mut rules = HashMap::new();
     for line in lines {
-        let x:Vec<&str> = line.split(':').collect();
-        if let (Some(idx), Some(rule)) = (x.get(0), x.get(1)) {
+        if let Some((idx,rule)) = common::split2(line, ":") {
             let idx  = idx.parse::<usize>();
-            let rule = Rule::parse(&String::from(*rule));
+            let rule = Rule::parse(rule);
             if let (Ok(idx), Some(rule)) = (idx,rule) {
                 rules.insert(idx, rule);
             } else {return None;}

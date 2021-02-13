@@ -21,10 +21,9 @@ impl Opcode {
     /// Parse one line from a larger program.
     fn compile(line: &String) -> Result<Opcode, String> {
         let error = Err(line.clone());
-        let split: Vec<&str> = line.split(' ').collect();
-        if split.len() == 2 {
-            let arg = split[1].parse::<i64>();
-            match (split[0], arg) {
+        if let Some((cmd,arg)) = common::split2(line, " ") {
+            let arg = arg.parse::<i64>();
+            match (cmd, arg) {
                 ("nop", Ok(n))  => Ok(Opcode::Nop(n)),
                 ("acc", Ok(n))  => Ok(Opcode::Acc(n)),
                 ("jmp", Ok(n))  => Ok(Opcode::Jmp(n)),

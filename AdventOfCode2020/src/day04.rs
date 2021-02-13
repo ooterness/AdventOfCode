@@ -32,9 +32,8 @@ impl Passport {
     fn add_line(&mut self, line: &str) {
         // Split on spaces to get key:value pairs.
         for kv_str in line.split(' ') {
-            let kv:Vec<&str> = kv_str.split(':').collect();
-            if kv.len() == 2 {
-                self.fields.insert(String::from(kv[0]), String::from(kv[1]));
+            if let Some((k,v)) = common::split2(kv_str, ":") {
+                self.fields.insert(String::from(k), String::from(v));
             } else {
                 eprintln!("Bad key/value: {}", kv_str);
             }

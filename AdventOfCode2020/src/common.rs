@@ -83,3 +83,15 @@ pub fn print_list(lbl: &str, iter: impl Iterator<Item=usize>) {
     }
     println!("]");
 }
+
+/// Split a string in two based on delimiter.
+#[allow(dead_code)]
+pub fn split2<'a>(line: &'a str, delim: &str) -> Option<(&'a str, &'a str)>
+{
+    let vec:Vec<&str> = line.split(delim).collect();
+    if vec.len() == 2 {
+        Some((vec[0], vec[1]))
+    } else {
+        None
+    }
+}
