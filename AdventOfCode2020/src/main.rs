@@ -26,15 +26,12 @@ mod day19;
 mod day20;
 mod day21;
 mod day22;
+mod day23;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
 
-    if args.len() < 2 {
-        eprintln!("Usage: cargo run [day#]");
-        eprintln!("  Where day# is the problem to be solved (1-25)");
-    } else {
-        let daynum:u32 = args[1].parse().unwrap();
+    if let Ok(daynum) = args[1].parse::<usize>() {
         match daynum {
             1 => day01::solve(),
             2 => day02::solve(),
@@ -58,7 +55,11 @@ fn main() {
             20 => day20::solve(),
             21 => day21::solve(),
             22 => day22::solve(),
-            _ => println!("No solution yet."),
+            23 => day23::solve(),
+            _ => println!("No solution for Day {} yet.", daynum),
         }
+    } else {
+        eprintln!("Usage: cargo run [day#]");
+        eprintln!("  Where day# is the problem to be solved (1-25)");
     }
 }
