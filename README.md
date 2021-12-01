@@ -17,3 +17,11 @@ I have been using the 2020 puzzles as a training exercise to help me [learn Rust
 To avoid creating a new crate for each day, all solutions are compiled as a single program.  To solve Day 19, run "cargo run 19".
 
 Environment: Windows 10 / Cargo 1.49.0
+
+# 2021
+
+Rust again this year.
+
+To avoid creating a new crate for each day, all solutions are compiled as a single program.  To solve Day 19, run "cargo run 19".
+
+Environment: Windows 10 / Cargo 1.56.0
