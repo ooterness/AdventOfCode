@@ -30,16 +30,17 @@ impl Command {
 
 // Track a submarine's position.
 struct Submarine {
-    x: i64,
-    d: i64,
+    x: i64,     // Horizontal position
+    d: i64,     // Current depth
+    a: i64,     // Current "aim"
 }
 
 impl Submarine {
     fn new() -> Submarine {
-        Submarine {x:0, d:0}
+        Submarine {x:0, d:0, a:0}
     }
 
-    fn command(&mut self, cmd: &Command) {
+    fn command1(&mut self, cmd: &Command) {
         match cmd {
             Command::Forward(n) => self.x += n,     // Horizontal motion
             Command::Up(n)      => self.d -= n,     // Decrease depth
@@ -47,12 +48,24 @@ impl Submarine {
         };
     }
 
-    fn run(&mut self, filename: &str) {
+    fn command2(&mut self, cmd: &Command) {
+        match cmd {
+            Command::Forward(n) =>                  // Forward motion
+                {self.x += n; self.d += self.a * n},
+            Command::Up(n)      => self.a -= n,     // Decrease aim
+            Command::Down(n)    => self.a += n,     // Increase aim
+        };
+    }
+
+    fn run(filename: &str, part1: bool) -> Submarine {
+        let mut sub = Submarine::new();
         for line in common::read_lines(filename).iter() {
             if let Some(cmd) = Command::from_str(&line) {
-                self.command(&cmd);
+                if part1 {sub.command1(&cmd)}
+                else     {sub.command2(&cmd)};
             }
         }
+        sub
     }
 
     fn score(&self) -> i64 {
@@ -61,15 +74,19 @@ impl Submarine {
 }
 
 pub fn solve() {
-    // Run the Part-1 example.
-    let mut test1 = Submarine::new();
-    test1.run("input/test02.txt");
+    // Run the short example in each mode.
+    let test1 = Submarine::run("input/test02.txt", true);
     assert_eq!(test1.x, 15);
     assert_eq!(test1.d, 10);
     assert_eq!(test1.score(), 150);
+    let test2 = Submarine::run("input/test02.txt", false);
+    assert_eq!(test2.x, 15);
+    assert_eq!(test2.d, 60);
+    assert_eq!(test2.score(), 900);
 
-    // Run the problem input.
-    let mut part1 = Submarine::new();
-    part1.run("input/input02.txt");
+    // Run the problem input in each mode.
+    let part1 = Submarine::run("input/input02.txt", true);
     println!("Part 1: {}", part1.score());
+    let part2 = Submarine::run("input/input02.txt", false);
+    println!("Part 2: {}", part2.score());
 }
