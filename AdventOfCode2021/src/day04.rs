@@ -23,6 +23,7 @@ impl RowCol {
 
 // State for a 5x5 Bingo board
 struct Board {
+    done: bool,
     grid: HashMap<Callout,RowCol>,
     grid_marked: Vec<bool>,
     cols_marked: Vec<usize>,
@@ -66,6 +67,7 @@ impl Board {
         }
         // Initialize the per-row and per-column counters to zero.
         Board {
+            done: false,
             grid: grid,
             grid_marked: vec![false; BOARD_SIZE*BOARD_SIZE],
             cols_marked: vec![0; BOARD_SIZE],
@@ -81,13 +83,15 @@ impl Board {
 
     // Mark a number on a board.  Return true if board just won.
     fn mark(&mut self, x: &Callout) -> bool {
+        if self.done {return false}     // Ignore completed boards
         if let Some(pos) = self.grid.get(x) {
             self.grid_marked[pos.idx()] = true;
             self.cols_marked[pos.c] += 1usize;
             self.rows_marked[pos.r] += 1usize;
-            return (self.cols_marked[pos.c] >= BOARD_SIZE)
-                || (self.rows_marked[pos.r] >= BOARD_SIZE)
-        } else {false}  // Called number is not on this Board
+            self.done = (self.cols_marked[pos.c] >= BOARD_SIZE)
+                     || (self.rows_marked[pos.r] >= BOARD_SIZE);
+        }
+        self.done                       // Did this board just win?
     }
 
     // Find the sum of all unmarked squares.
@@ -111,7 +115,7 @@ fn read_input(filename: &str) -> (Vec<Callout>, Vec<Board>) {
     (callouts, boards)
 }
 
-// Part 1 solution: Mark callouts on all boards until we find a winner.
+// Part 1 solution: Find the earliest winner.
 fn solve_part1(filename: &str) -> (u64, u64) {
     let (callouts, mut boards) = read_input(filename);
     for c in callouts.iter() {
@@ -122,11 +126,30 @@ fn solve_part1(filename: &str) -> (u64, u64) {
     (0, 0)
 }
 
+// Part 1 solution: Find the latest winner.
+fn solve_part2(filename: &str) -> (u64, u64) {
+    let (callouts, mut boards) = read_input(filename);
+    let mut result = (0u64, 0u64);
+    for c in callouts.iter() {
+        for b in boards.iter_mut() {
+            if b.mark(&c) {result = (*c as u64, b.sum_unmarked())}
+        }
+    }
+    result
+}
+
 pub fn solve() {
     // Part-1 solution (test + full)
     let test1 = solve_part1("input/test04.txt");
-    assert_eq!(test1.0, 24);
-    assert_eq!(test1.1, 188);
+    assert_eq!(test1.0, 24);    // Final callout
+    assert_eq!(test1.1, 188);   // Unmarked points
     let part1 = solve_part1("input/input04.txt");
     println!("Part1: {}", part1.0 * part1.1);
+
+    // Part-2 solution (test + full)
+    let test2 = solve_part2("input/test04.txt");
+    assert_eq!(test2.0, 13);    // Final callout
+    assert_eq!(test2.1, 148);   // Unmarked points
+    let part2 = solve_part2("input/input04.txt");
+    println!("Part2: {}", part2.0 * part2.1);
 }
