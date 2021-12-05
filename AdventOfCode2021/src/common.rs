@@ -36,6 +36,23 @@ pub fn split_str_as<T: FromStr>(line: &str, delim:char) -> Vec<T>
         .collect()
 }
 
+/// Parse a string's numeric components.
+#[allow(dead_code)]
+pub fn split_numeric(line: &str) -> Vec<u64> {
+    let mut temp: Option<u64> = None;
+    let mut result: Vec<u64> = Vec::new();
+    for c in line.chars() {
+        if let Some(n) = c.to_digit(10) {
+            temp = Some(10 * temp.unwrap_or(0) + n as u64);
+        } else {
+            if let Some(n) = temp {result.push(n)};
+            temp = None;
+        }
+    }
+    if let Some(n) = temp {result.push(n);}
+    return result
+}
+
 /// Print a labelled list of items.
 #[allow(dead_code)]
 pub fn print_list<T: std::fmt::Display>(lbl: &str, iter: impl Iterator<Item=T>) {
