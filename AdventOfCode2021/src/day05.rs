@@ -2,13 +2,33 @@
 /// Copyright 2021 by Alex Utter
 
 #[path = "common.rs"] mod common;
-use core::cmp::max;
-use core::cmp::min;
+use std::cmp::max;
 
 // A point (x,y)
 struct Point {
     x: i64,
     y: i64,
+}
+
+// A "map" is a 2D-array of counters for each X/Y point.
+struct MapCount {
+    mapsize: usize,
+    counts: Vec<usize>,
+}
+
+impl MapCount {
+    fn new(mapsize: usize) -> MapCount {
+        MapCount {mapsize:mapsize, counts: vec![0; mapsize*mapsize]}
+    }
+
+    fn mark(&mut self, pt: &Point) {
+        let idx = self.mapsize * pt.y as usize + pt.x as usize;
+        self.counts[idx] += 1;
+    }
+
+    fn count2(&self) -> usize {
+        self.counts.iter().filter(|&x| *x >= 2).count()
+    }
 }
 
 // A line segment from (x1,y1) to (x2,y2)
@@ -18,15 +38,9 @@ impl Segment {
     fn new(line: &str) -> Option<Segment> {
         let xy = common::split_numeric(line);
         if xy.len() == 4 {
-            if xy[0] <= xy[2] {
-                Some(Segment(
-                    Point {x:xy[0] as i64, y:xy[1] as i64},
-                    Point {x:xy[2] as i64, y:xy[3] as i64}))
-            } else {
-                Some(Segment(
-                    Point {x:xy[2] as i64, y:xy[3] as i64},
-                    Point {x:xy[0] as i64, y:xy[1] as i64}))
-            }
+            Some(Segment(
+                Point {x:xy[0] as i64, y:xy[1] as i64},
+                Point {x:xy[2] as i64, y:xy[3] as i64}))
         } else {None}
     }
 
@@ -34,12 +48,21 @@ impl Segment {
         (self.0.x == self.1.x) || (self.0.y == self.1.y)
     }
 
-    fn contains(&self, p: &Point) -> bool {
-        if (self.0.x <= p.x) && (p.x <= self.1.x) {
-            let y1 = min(self.0.y, self.1.y);
-            let y2 = max(self.0.y, self.1.y);
-            (y1 <= p.y) && (p.y <= y2)
-        } else {false}
+    fn len(&self) -> i64 {
+        let dx = (self.1.x - self.0.x).abs();
+        let dy = (self.1.y - self.0.y).abs();
+        max(dx, dy)
+    }
+
+    fn mark_on(&self, map: &mut MapCount) {
+        let dt = self.len();
+        let dx = (self.1.x - self.0.x) / dt;
+        let dy = (self.1.y - self.0.y) / dt;
+        for t in 0..dt+1 {
+            let x = self.0.x + t * dx;
+            let y = self.0.y + t * dy;
+            map.mark(&Point{x:x, y:y});
+        }
     }
 }
 
@@ -57,19 +80,10 @@ fn read_input(filename: &str, hv: bool) -> Vec<Segment> {
 }
 
 // Count points with at least two overlapping segments.
-fn count_overlap(segs: &Vec<Segment>, mapsize: i64) -> usize {
-    let mut count_ovr = 0usize;
-    for x in 0..mapsize {
-        for y in 0..mapsize {
-            let point = Point {x:x, y:y};
-            let mut count_seg = 0usize;
-            for seg in segs {
-                if seg.contains(&point) {count_seg += 1;}
-            }
-            if count_seg >= 2 {count_ovr += 1;}
-        }
-    }
-    return count_ovr
+fn count_overlap(segs: &Vec<Segment>, mapsize: usize) -> usize {
+    let mut map = MapCount::new(mapsize);
+    for seg in segs {seg.mark_on(&mut map);}
+    map.count2()
 }
 
 pub fn solve() {
@@ -79,4 +93,11 @@ pub fn solve() {
     assert_eq!(count_overlap(&test1, 10), 5);   // Check overlap
     let data1 = read_input("input/input05.txt", true);
     println!("Part1: {}", count_overlap(&data1, 1000));
+
+    // Part 2 considers lines of all types.
+    let test2 = read_input("input/test05.txt", false);
+    assert_eq!(test2.len(), 10);
+    assert_eq!(count_overlap(&test2, 10), 12);
+    let data2 = read_input("input/input05.txt", false);
+    println!("Part1: {}", count_overlap(&data2, 1000));
 }
