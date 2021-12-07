@@ -13,19 +13,28 @@ impl Crabs {
         Crabs {pos: common::split_str_as(&lines[0], ',')}
     }
 
+    // Leftmost and rightmost points?
+    fn left(&self) -> i64   {*self.pos.iter().min().unwrap_or(&0)}
+    fn right(&self) -> i64  {*self.pos.iter().max().unwrap_or(&0)}
+
+    // Flat-rate alignment cost
     fn align(&self, fin: i64) -> i64 {
         self.pos.iter().map(|x| (x-fin).abs()).sum()
     }
 
+    // Search all possible targets for the lowest alignment cost.
     fn align_best(&self) -> i64 {
-        let left  = *self.pos.iter().min().unwrap();
-        let right = *self.pos.iter().max().unwrap();
-        let mut best = self.align(left);
-        for n in left+1..right+1 {
-            let next = self.align(n);
-            if next < best {best = next;}
-        }
-        best
+        (self.left()..self.right()+1).map(|x| self.align(x)).min().unwrap_or(0)
+    }
+
+    // Increasing-rate alignment cost
+    fn accel(&self, fin: i64) -> i64 {
+        self.pos.iter().map(|x| (x-fin).abs()).map(|x| (x+1)*x/2).sum()
+    }
+
+    // Search all possible targets for the lowest alignment cost.
+    fn accel_best(&self) -> i64 {
+        (self.left()..self.right()+1).map(|x| self.accel(x)).min().unwrap_or(0)
     }
 }
 
@@ -41,4 +50,12 @@ pub fn solve() {
     // Real input.
     let data = Crabs::new("input/input07.txt");
     println!("Part1: {}", data.align_best());
+
+    // Tests with scaling costs.
+    assert_eq!(test.accel(2), 206);
+    assert_eq!(test.accel(5), 168);
+    assert_eq!(test.accel_best(), 168);
+
+    // Real input.
+    println!("Part2: {}", data.accel_best());
 }
