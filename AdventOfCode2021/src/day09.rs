@@ -2,6 +2,7 @@
 /// Copyright 2021 by Alex Utter
 
 #[path = "common.rs"] mod common;
+use std::collections::HashSet;
 
 type Height = u32;
 struct HeightMap {
@@ -47,6 +48,43 @@ impl HeightMap {
                 .sum::<Height>())
             .sum()
     }
+
+    // Find the size of a given basin using flood-fill.
+    fn basin(&self, r: i32, c: i32) -> Option<u64> {
+        // Only start from the lowest point in the basin.
+        if !self.is_low(r,c) {return None;}
+        // Otherwise start breadth-first search.
+        type Coord = (i32, i32);
+        let mut visited = HashSet::<Coord>::new();
+        let mut queue = Vec::<Coord>::new();
+        visited.insert((r,c));
+        queue.push((r,c));
+        while let Some(rc) = queue.pop() {
+            for next in [(rc.0-1,rc.1),(rc.0+1,rc.1),(rc.0,rc.1-1),(rc.0,rc.1+1)] {
+                if self.get(next.0, next.1) < 9 && !visited.contains(&next) {
+                    visited.insert(next);
+                    queue.push(next);
+                }
+            }
+        }
+        Some(visited.len() as u64)
+    }
+
+    // Part-2 is the product of each basin size.
+    fn part2(&self) -> u64 {
+        // Find all the basins...
+        let mut basins = Vec::<u64>::new();
+        for r in 0..self.h.len() {
+            for c in 0..self.h[r].len() {
+                if let Some(x) = self.basin(r as i32, c as i32) {
+                    basins.push(x);
+                }
+            }
+        }
+        // Identify the largest three.
+        basins.sort(); basins.reverse();
+        basins.iter().take(3).product()
+    }
 }
 
 pub fn solve() {
@@ -55,4 +93,7 @@ pub fn solve() {
 
     assert_eq!(test.part1(), 15);
     println!("Part1: {}", data.part1());
+
+    assert_eq!(test.part2(), 1134);
+    println!("Part2: {}", data.part2());
 }
