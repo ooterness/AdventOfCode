@@ -25,9 +25,9 @@ impl RowCol {
 struct Board {
     done: bool,
     grid: HashMap<Callout,RowCol>,
-    grid_marked: Vec<bool>,
-    cols_marked: Vec<usize>,
-    rows_marked: Vec<usize>,
+    grid_marked: [bool; BOARD_SIZE*BOARD_SIZE],
+    cols_marked: [usize; BOARD_SIZE],
+    rows_marked: [usize; BOARD_SIZE],
 }
 
 impl Board {
@@ -69,9 +69,9 @@ impl Board {
         Board {
             done: false,
             grid: grid,
-            grid_marked: vec![false; BOARD_SIZE*BOARD_SIZE],
-            cols_marked: vec![0; BOARD_SIZE],
-            rows_marked: vec![0; BOARD_SIZE],
+            grid_marked: [false; BOARD_SIZE*BOARD_SIZE],
+            cols_marked: [0; BOARD_SIZE],
+            rows_marked: [0; BOARD_SIZE],
         }
     }
 

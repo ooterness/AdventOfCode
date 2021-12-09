@@ -9,13 +9,13 @@ const DAYS_SPAWN1: usize = 7;   // Days between subsequent spawnings
 
 // State vector counts fish with each possible timer state.
 struct FishCount {
-    count: Vec<u64>,
+    count: [u64; DAYS_SPAWN0],
 }
 
 impl FishCount {
     // Read a comma-delimited string of fish-timers.
     fn new(line: &str) -> FishCount {
-        let mut count = vec![0u64; DAYS_SPAWN0];
+        let mut count = [0u64; DAYS_SPAWN0];
         for idx in common::split_str_as::<usize>(line, ',').into_iter() {
             assert!(idx < DAYS_SPAWN0); // Invalid input?
             count[idx] += 1;            // Increment fish-count
@@ -25,7 +25,7 @@ impl FishCount {
 
     // Increment state by one day.
     fn next(&self) -> FishCount {
-        let mut count = vec![0u64; DAYS_SPAWN0];
+        let mut count = [0u64; DAYS_SPAWN0];
         for n in 0..DAYS_SPAWN0-1 {
             count[n] = self.count[n+1];
         }
