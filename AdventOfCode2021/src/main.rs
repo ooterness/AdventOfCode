@@ -3,6 +3,9 @@
 ///     To run a given day's solution: cargo run [day#]
 /// Copyright 2021 by Alex Utter
 
+#[macro_use]
+extern crate lazy_static;
+
 use std::env;
 mod day01;
 mod day02;
@@ -13,6 +16,7 @@ mod day06;
 mod day07;
 mod day08;
 mod day09;
+mod day10;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -28,6 +32,7 @@ fn main() {
             7 => day07::solve(),
             8 => day08::solve(),
             9 => day09::solve(),
+            10 => day10::solve(),
             _ => println!("No solution for Day {} yet.", daynum),
         }
     } else {
