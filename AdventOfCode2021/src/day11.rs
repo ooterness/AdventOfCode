@@ -4,6 +4,7 @@
 #[path = "common.rs"] mod common;
 #[path = "grid.rs"] mod grid;
 
+#[derive(Clone)]
 struct Cave {
     crabs: grid::Grid<u8>,
 }
@@ -46,10 +47,17 @@ impl Cave {
     }
 
     fn part1(&self, steps: usize) -> u64 {
-        let mut caves = Cave {crabs: self.crabs.clone()};
+        let mut caves = self.clone();
         let mut count = 0u64;
         for _n in 0..steps {count += caves.next();}
         return count
+    }
+
+    fn part2(&self) -> u64 {
+        let mut caves = self.clone();
+        let mut steps = 1u64;
+        while caves.next() < 100 {steps += 1};
+        return steps
     }
 }
 
@@ -61,4 +69,7 @@ pub fn solve() {
     assert_eq!(test.part1(10), 204);
     assert_eq!(test.part1(100), 1656);
     println!("Part1: {}", data.part1(100));
+
+    assert_eq!(test.part2(), 195);
+    println!("Part2: {}", data.part2());
 }
