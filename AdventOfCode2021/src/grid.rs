@@ -24,6 +24,7 @@ pub struct GridSize {
 }
 
 /// A "grid" is a matrix of values (rows then columns).
+#[derive(Clone, Eq, Hash, PartialEq)]
 pub struct Grid<T> {
     pub data: Vec<Vec<T>>,
     pub size: GridSize,
@@ -47,24 +48,31 @@ impl<T> Grid<T> {
         } else {None}
     }
 
+    pub fn set(&mut self, rc: &RowCol, val: T) {
+        if (0 <= rc.r) && ((rc.r as usize) < self.size.r) &&
+           (0 <= rc.c) && ((rc.c as usize) < self.size.c) {
+            self.data[rc.r as usize][rc.c as usize] = val;
+        }
+    }
+
     pub fn gets(&self, rc: &GridSize) -> Option<&T> {
         if (rc.r < self.size.r) && (rc.c < self.size.c) {
             Some(&self.data[rc.r][rc.c])
         } else {None}
     }
 
-    pub fn iter<'a>(&'a self) -> GridIterator<'a> {
-        GridIterator { size:&self.size, next: GridSize{r:0,c:0} }
+    pub fn iter(&self) -> GridIterator {
+        GridIterator { size:self.size.clone(), next: GridSize{r:0,c:0} }
     }
 }
 
 /// Iterator over every row/column coordinate in a Grid.
-pub struct GridIterator<'a> {
-    size: &'a GridSize,
+pub struct GridIterator {
+    size: GridSize,
     next: GridSize,
 }
 
-impl<'a> Iterator for GridIterator<'a> {
+impl<'a> Iterator for GridIterator {
     type Item = RowCol;
 
     fn next(&mut self) -> Option<Self::Item> {
