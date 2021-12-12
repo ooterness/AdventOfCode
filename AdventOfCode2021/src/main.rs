@@ -20,6 +20,7 @@ mod day08;
 mod day09;
 mod day10;
 mod day11;
+mod day12;
 
 // List of functions, one for each day's problem.
 lazy_static! {
@@ -35,6 +36,7 @@ lazy_static! {
         (9,  day09::solve as fn()),
         (10, day10::solve as fn()),
         (11, day11::solve as fn()),
+        (12, day12::solve as fn()),
     ].into_iter().collect();
 
     static ref EMPTY_STRING: String = String::from("");
