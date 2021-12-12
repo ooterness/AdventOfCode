@@ -25,6 +25,8 @@ impl Room {
 struct Cave {
     labels: HashMap<String, usize>, // Map labels to indices
     rooms: Vec<Room>,               // Vector of Rooms
+    start: usize,
+    end: usize,
 }
 
 impl Cave {
@@ -32,7 +34,10 @@ impl Cave {
         let mut cave = Cave {
             labels: HashMap::new(),
             rooms: Vec::new(),
+            start: 0,
+            end: 0,
         };
+        // Each line indicates a connection between two named rooms.
         let lines = common::read_lines(filename);
         for line in lines.iter() {
             let words: Vec<&str> = line.split('-').collect();
@@ -41,6 +46,9 @@ impl Cave {
             let room1 = cave.get_room_idx(words[1]);
             cave.add_connection(room0, room1);
         }
+        // Find starting and ending indices.
+        cave.start  = *cave.labels.get("start").unwrap();
+        cave.end    = *cave.labels.get("end").unwrap();
         return cave
     }
 
@@ -63,63 +71,36 @@ impl Cave {
         self.rooms[y].adj.push(x);
     }
 
-    // Count all possible paths that avoid revisiting a small room.
-    fn part1(&self) -> u64 {
-        // Find starting and ending indices.
-        let start   = *self.labels.get("start").unwrap();
-        let end     = *self.labels.get("end").unwrap();
-        // Depth-first search of paths.
-        type SearchState = (usize, u64);
-        let initial: SearchState = (start, get_mask(start));
-        let mut queue = vec![initial];
+    // Recursive depth first search.
+    fn search(&self, room: usize, prev: u64, spare: bool) -> u64 {
         let mut count = 0u64;
-        while let Some((room,prev)) = queue.pop() {
-            for next in self.rooms[room].adj.iter() {
-                let mask = get_mask(*next);
-                if *next == end {
-                    // Reached end of maze.
-                    count += 1;
-                } else if !self.rooms[*next].smol {
-                    // Large rooms recurse without additional checks.
-                    queue.push((*next, prev));
-                } else if prev & mask == 0 {
-                    // Small rooms proceed only if we haven't visited yet.
-                    queue.push((*next, prev | mask));
-                }
+        for next in self.rooms[room].adj.iter() {
+            let mask = get_mask(*next);
+            if *next == self.end {
+                // Reached end of maze.
+                count += 1;
+            } else if !self.rooms[*next].smol {
+                // Large rooms recurse without additional checks.
+                count += self.search(*next, prev, spare);
+            } else if prev & mask == 0 {
+                // Small rooms proceed only if we haven't visited yet.
+                count += self.search(*next, prev | mask, spare);
+            } else if spare && *next != self.start {
+                // Special case: Revisit a single small room.
+                count += self.search(*next, prev, false);
             }
         }
-        count
+        return count
+    }
+
+    // Count all possible paths that avoid revisiting a small room.
+    fn part1(&self) -> u64 {
+        self.search(self.start, get_mask(self.start), false)
     }
 
     // Count all possible paths that revisit no more than one small room.
     fn part2(&self) -> u64 {
-        // Find starting and ending indices.
-        let start   = *self.labels.get("start").unwrap();
-        let end     = *self.labels.get("end").unwrap();
-        // Depth-first search of paths.
-        type SearchState = (usize, u64, Option<usize>);
-        let initial: SearchState = (start, get_mask(start), None);
-        let mut queue = vec![initial];
-        let mut count = 0u64;
-        while let Some((room,prev,dual)) = queue.pop() {
-            for next in self.rooms[room].adj.iter() {
-                let mask = get_mask(*next);
-                if *next == end {
-                    // Reached end of maze.
-                    count += 1;
-                } else if !self.rooms[*next].smol {
-                    // Large rooms recurse without additional checks.
-                    queue.push((*next, prev, dual));
-                } else if prev & mask == 0 {
-                    // Small rooms proceed only if we haven't visited yet.
-                    queue.push((*next, prev | mask, dual));
-                } else if dual == None && *next != start {
-                    // Special case: Revisit a single small room.
-                    queue.push((*next, prev, Some(*next)));
-                }
-            }
-        }
-        count
+        self.search(self.start, get_mask(self.start), true)
     }
 }
 
