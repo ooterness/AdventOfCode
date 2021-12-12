@@ -83,6 +83,38 @@ impl Cave {
         }
         count
     }
+
+    // Count all possible paths that revisit no more than one small room.
+    fn part2(&self) -> u64 {
+        // Find starting and ending indices.
+        let start   = *self.labels.get("start").unwrap();
+        let end     = *self.labels.get("end").unwrap();
+        // Depth-first search of paths.
+        type SearchState = (usize, HashSet<usize>, Option<usize>);
+        let initial: SearchState = (start, HashSet::from([start]), None);
+        let mut queue = vec![initial];
+        let mut count = 0u64;
+        while let Some((room,prev,dual)) = queue.pop() {
+            for next in self.rooms[room].adj.iter() {
+                if *next == end {
+                    // Reached end of maze.
+                    count += 1;
+                } else if !self.rooms[*next].smol {
+                    // Large rooms recurse without additional checks.
+                    queue.push((*next, prev.clone(), dual));
+                } else if !prev.contains(next) {
+                    // Small rooms proceed only if we haven't visited yet.
+                    let mut prev2 = prev.clone();
+                    prev2.insert(*next);
+                    queue.push((*next, prev2, dual));
+                } else if dual == None && *next != start {
+                    // Special case: Revisit a single small room.
+                    queue.push((*next, prev.clone(), Some(*next)));
+                }
+            }
+        }
+        count
+    }
 }
 
 pub fn solve() {
@@ -95,4 +127,9 @@ pub fn solve() {
     assert_eq!(test2.part1(), 19);
     assert_eq!(test3.part1(), 226);
     println!("Part1: {}", input.part1());
+
+    assert_eq!(test1.part2(), 36);
+    assert_eq!(test2.part2(), 103);
+    assert_eq!(test3.part2(), 3509);
+    println!("Part2: {}", input.part2());
 }
