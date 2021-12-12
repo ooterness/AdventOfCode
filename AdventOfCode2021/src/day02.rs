@@ -86,7 +86,7 @@ pub fn solve() {
 
     // Run the problem input in each mode.
     let part1 = Submarine::run("input/input02.txt", true);
-    println!("Part 1: {}", part1.score());
+    println!("Part1: {}", part1.score());
     let part2 = Submarine::run("input/input02.txt", false);
-    println!("Part 2: {}", part2.score());
+    println!("Part2: {}", part2.score());
 }

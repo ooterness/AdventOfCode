@@ -65,9 +65,9 @@ fn part2(filename: &str) -> u64 {
 pub fn solve() {
     // Test part-1 solver, then apply to real input.
     assert_eq!(part1("input/test01.txt"), 7);
-    println!("Part 1: {}", part1("input/input01.txt"));
+    println!("Part1: {}", part1("input/input01.txt"));
 
     // Test part-2 solver, then apply to real input.
     assert_eq!(part2("input/test01.txt"), 5);
-    println!("Part 2: {}", part2("input/input01.txt"));
+    println!("Part2: {}", part2("input/input01.txt"));
 }

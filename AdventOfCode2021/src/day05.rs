@@ -99,5 +99,5 @@ pub fn solve() {
     assert_eq!(test2.len(), 10);
     assert_eq!(count_overlap(&test2, 10), 12);
     let data2 = read_input("input/input05.txt", false);
-    println!("Part1: {}", count_overlap(&data2, 1000));
+    println!("Part2: {}", count_overlap(&data2, 1000));
 }
