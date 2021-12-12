@@ -3,7 +3,12 @@
 
 #[path = "common.rs"] mod common;
 use std::collections::HashMap;
-use std::collections::HashSet;
+
+// Note: Using "u64" as a proxy for HashSet, since
+//       there's never more than a few dozen rooms.
+fn get_mask(idx: usize) -> u64 {
+    1u64 << idx
+}
 
 struct Room {
     adj: Vec<usize>,                // Adjacent room indices
@@ -51,6 +56,9 @@ impl Cave {
     }
 
     fn add_connection(&mut self, x: usize, y: usize) {
+        // Sanity check: Two connected large rooms would form an infinite loop.
+        assert!(self.rooms[x].smol || self.rooms[y].smol);
+        // Add the path from X to Y and from Y to X.
         self.rooms[x].adj.push(y);
         self.rooms[y].adj.push(x);
     }
@@ -61,23 +69,22 @@ impl Cave {
         let start   = *self.labels.get("start").unwrap();
         let end     = *self.labels.get("end").unwrap();
         // Depth-first search of paths.
-        type SearchState = (usize, HashSet<usize>);
-        let initial: SearchState = (start, HashSet::from([start]));
+        type SearchState = (usize, u64);
+        let initial: SearchState = (start, get_mask(start));
         let mut queue = vec![initial];
         let mut count = 0u64;
         while let Some((room,prev)) = queue.pop() {
             for next in self.rooms[room].adj.iter() {
+                let mask = get_mask(*next);
                 if *next == end {
                     // Reached end of maze.
                     count += 1;
                 } else if !self.rooms[*next].smol {
                     // Large rooms recurse without additional checks.
-                    queue.push((*next, prev.clone()));
-                } else if !prev.contains(next) {
+                    queue.push((*next, prev));
+                } else if prev & mask == 0 {
                     // Small rooms proceed only if we haven't visited yet.
-                    let mut prev2 = prev.clone();
-                    prev2.insert(*next);
-                    queue.push((*next, prev2));
+                    queue.push((*next, prev | mask));
                 }
             }
         }
@@ -90,26 +97,25 @@ impl Cave {
         let start   = *self.labels.get("start").unwrap();
         let end     = *self.labels.get("end").unwrap();
         // Depth-first search of paths.
-        type SearchState = (usize, HashSet<usize>, Option<usize>);
-        let initial: SearchState = (start, HashSet::from([start]), None);
+        type SearchState = (usize, u64, Option<usize>);
+        let initial: SearchState = (start, get_mask(start), None);
         let mut queue = vec![initial];
         let mut count = 0u64;
         while let Some((room,prev,dual)) = queue.pop() {
             for next in self.rooms[room].adj.iter() {
+                let mask = get_mask(*next);
                 if *next == end {
                     // Reached end of maze.
                     count += 1;
                 } else if !self.rooms[*next].smol {
                     // Large rooms recurse without additional checks.
-                    queue.push((*next, prev.clone(), dual));
-                } else if !prev.contains(next) {
+                    queue.push((*next, prev, dual));
+                } else if prev & mask == 0 {
                     // Small rooms proceed only if we haven't visited yet.
-                    let mut prev2 = prev.clone();
-                    prev2.insert(*next);
-                    queue.push((*next, prev2, dual));
+                    queue.push((*next, prev | mask, dual));
                 } else if dual == None && *next != start {
                     // Special case: Revisit a single small room.
-                    queue.push((*next, prev.clone(), Some(*next)));
+                    queue.push((*next, prev, Some(*next)));
                 }
             }
         }
@@ -126,6 +132,7 @@ pub fn solve() {
     assert_eq!(test1.part1(), 10);
     assert_eq!(test2.part1(), 19);
     assert_eq!(test3.part1(), 226);
+    println!("Max rooms {}", input.rooms.len()); //???
     println!("Part1: {}", input.part1());
 
     assert_eq!(test1.part2(), 36);
