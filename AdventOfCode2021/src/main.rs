@@ -66,7 +66,9 @@ fn main() {
     if arg == "all" {
         // Solve every problem in the list.
         let mut elapsed = 0u32;
-        for idx in SOLUTIONS.keys() {
+        let mut keys:Vec<&usize> = SOLUTIONS.keys().collect();
+        keys.sort();    // Print in order...
+        for idx in keys.iter() {
             elapsed += solve_timer(idx);
         };
         println!("Total elapsed time {} msec.", elapsed);
