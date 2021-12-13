@@ -67,6 +67,20 @@ impl Paper {
             _ => self.clone(),
         }
     }
+
+    // Print the current state.
+    fn print(&self) {
+        let cols = self.dots.iter().map(|d| d.x).max().unwrap_or(0) + 1;
+        let rows = self.dots.iter().map(|d| d.y).max().unwrap_or(0) + 1;
+        for r in 0..rows {
+            let row: String = (0..cols)
+                .map(|c| Dot {x:c, y:r} )           // Create Dot object
+                .map(|d| self.dots.contains(&d))    // Check current state
+                .map(|h| if h {'#'} else {'.'})     // Highlight this cell?
+                .collect();
+            println!("{}", row);
+        }
+    }
 }
 
 pub fn solve() {
@@ -81,6 +95,14 @@ pub fn solve() {
     assert_eq!(ptest.fold_y(7).fold_x(5).count(), 16);
 
     // Part 1 executes only the first fold.
-    let part1 = pdata.fold_cmd(&data[pdata.cmd0]);
+    let cmds = &data[pdata.cmd0..];
+    let part1 = pdata.fold_cmd(&cmds[0]);
     println!("Part1: {}", part1.count());
+
+    // Part 2 executes the remaining folds and prints the result.
+    let mut part2 = pdata.clone();
+    for cmd in cmds.iter() {
+        part2 = part2.fold_cmd(&cmd);
+    }
+    part2.print();
 }
