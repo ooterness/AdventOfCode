@@ -8,18 +8,18 @@ use std::collections::BinaryHeap;
 use std::collections::HashMap;
 use std::collections::HashSet;
 
-type CaveGrid = grid::Grid<u64>;
+type CaveGrid = grid::Grid<usize>;
 type RowCol = grid::RowCol;
 
 // Node+score for use with BinaryHeap
 #[derive(Clone, Copy, Eq, Hash, PartialEq)]
 struct RowColScore {
     rc: RowCol,
-    dd: u64,
+    dd: usize,
 }
 
 impl RowColScore {
-    fn new(rc: &RowCol, dd:u64) -> RowColScore {
+    fn new(rc: &RowCol, dd:usize) -> RowColScore {
         RowColScore { rc:rc.clone(), dd:dd }
     }
 }
@@ -38,8 +38,8 @@ impl PartialOrd for RowColScore {
 
 // Find lowest-cost path from upper to lower corner.
 // https://en.wikipedia.org/wiki/Dijkstra%27s_algorithm#Pseudocode
-fn djikstra(grid: &CaveGrid) -> u64 {
-    let mut best:   HashMap<RowCol,u64> = HashMap::new();
+fn djikstra(grid: &CaveGrid) -> usize {
+    let mut best:   HashMap<RowCol,usize> = HashMap::new();
     let mut done:   HashSet<RowCol> = HashSet::new();
     let mut queue:  BinaryHeap<RowColScore> = BinaryHeap::new();
 
@@ -58,7 +58,7 @@ fn djikstra(grid: &CaveGrid) -> u64 {
         // Otherwise, process each of the immediate neighbors.
         for rc in [next.rc.nn(), next.rc.ee(), next.rc.ss(), next.rc.ww()] {
             if let Some(cost) = grid.get(&rc) {
-                let old = *best.get(&rc).unwrap_or(&u64::MAX);
+                let old = *best.get(&rc).unwrap_or(&usize::MAX);
                 let new = next.dd + cost;
                 if new < old {
                     best.insert(rc, new);
@@ -70,10 +70,33 @@ fn djikstra(grid: &CaveGrid) -> u64 {
     return best[&end]
 }
 
+// Tile-repetition + modulo for Part 2.
+fn tile5x5(grid: &CaveGrid) -> CaveGrid {
+    let mut new_data = vec![vec![0; 5*grid.size.c]; 5*grid.size.r];
+    for rc in grid.iter() {
+        let val = *grid.get(&rc).unwrap_or(&0);
+        for tr in 0..5usize {
+            for tc in 0..5usize {
+                let new_r = (grid.size.r*tr) + (rc.r as usize);
+                let new_c = (grid.size.c*tc) + (rc.c as usize);
+                let mut new_val = val + tr + tc;
+                if new_val > 9 {new_val -= 9;}  // 10+ wraps back to 1
+                new_data[new_r][new_c] = new_val;
+            }
+        }
+    }
+    CaveGrid::new(new_data)
+}
+
 pub fn solve() {
     let test:CaveGrid = grid::read_grid("input/test15.txt");
     let data:CaveGrid = grid::read_grid("input/input15.txt");
 
     assert_eq!(djikstra(&test), 40);
     println!("Part1: {}", djikstra(&data));
+
+    let test5 = tile5x5(&test);
+    let data5 = tile5x5(&data);
+    assert_eq!(djikstra(&test5), 315);
+    println!("Part1: {}", djikstra(&data5));
 }
