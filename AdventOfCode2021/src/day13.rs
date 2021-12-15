@@ -76,7 +76,7 @@ impl Paper {
             let row: String = (0..cols)
                 .map(|c| Dot {x:c, y:r} )           // Create Dot object
                 .map(|d| self.dots.contains(&d))    // Check current state
-                .map(|h| if h {'#'} else {'.'})     // Highlight this cell?
+                .map(|h| if h {'#'} else {' '})     // Highlight this cell?
                 .collect();
             println!("{}", row);
         }
