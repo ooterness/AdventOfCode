@@ -4,34 +4,28 @@
 #[path = "bits.rs"] mod bits;
 #[path = "common.rs"] mod common;
 
-// Part 1 adds all version numbers from a packet tree.
-fn ver_total(pkt: &bits::Packet) -> u64 {
-    pkt.ver as u64 + match &pkt.dat {
-        bits::PacketContents::Value(_) =>
-            0u64,
-        bits::PacketContents::Packets(inner) =>
-            inner.iter().map(|p| ver_total(p)).sum(),
-    }
-}
-
 pub fn solve() {
-    let test = common::read_lines("input/test16.txt");
-    let data = common::read_lines("input/input16.txt");
+    // Total version for various example packets.
+    assert_eq!(bits::Packet::from("D2FE28").ver_total(), 6);
+    assert_eq!(bits::Packet::from("8A004A801A8002F478").ver_total(), 16);
+    assert_eq!(bits::Packet::from("620080001611562C8802118E34").ver_total(), 12);
+    assert_eq!(bits::Packet::from("C0015000016115A2E0802F182340").ver_total(), 23);
+    assert_eq!(bits::Packet::from("A0016C880162017C3686B18A3D4780").ver_total(), 31);
 
-    // Parse the five test packets.
-    assert_eq!(test.len(), 5);
-    let test0 = bits::Packet::from(&test[0]);
-    let test1 = bits::Packet::from(&test[1]);
-    let test2 = bits::Packet::from(&test[2]);
-    let test3 = bits::Packet::from(&test[3]);
-    let test4 = bits::Packet::from(&test[4]);
-    assert_eq!(ver_total(&test0), 6);
-    assert_eq!(ver_total(&test1), 16);
-    assert_eq!(ver_total(&test2), 12);
-    assert_eq!(ver_total(&test3), 23);
-    assert_eq!(ver_total(&test4), 31);
+    // Expression value for various example packets.
+    assert_eq!(bits::Packet::from("D2FE28").evaluate(), 2021);
+    assert_eq!(bits::Packet::from("C200B40A82").evaluate(), 3);
+    assert_eq!(bits::Packet::from("04005AC33890").evaluate(), 54);
+    assert_eq!(bits::Packet::from("880086C3E88112").evaluate(), 7);
+    assert_eq!(bits::Packet::from("CE00C43D881120").evaluate(), 9);
+    assert_eq!(bits::Packet::from("D8005AC2A8F0").evaluate(), 1);
+    assert_eq!(bits::Packet::from("F600BC2D8F").evaluate(), 0);
+    assert_eq!(bits::Packet::from("9C005AC2F8F0").evaluate(), 0);
+    assert_eq!(bits::Packet::from("9C0141080250320F1802104A08").evaluate(), 1);
 
     // Parse the main data packet.
+    let data = common::read_lines("input/input16.txt");
     let data0 = bits::Packet::from(&data[0]);
-    println!("Part1: {}", ver_total(&data0));
+    println!("Part1: {}", data0.ver_total());
+    println!("Part2: {}", data0.evaluate());
 }

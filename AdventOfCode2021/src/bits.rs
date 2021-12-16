@@ -7,30 +7,40 @@ pub struct BitStream {
 }
 
 impl BitStream {
+    // Create an empty BitStream.
     pub fn new() -> BitStream {
         BitStream { dat: Vec::new() }
     }
 
+    // Length of remaining bits.
     pub fn len(&self) -> usize {
         self.dat.len()
     }
 
+    // Consume the next N bits, if available.
     pub fn consume(&mut self, n: usize) -> Option<BitStream> {
         if self.len() >= n {
             Some( BitStream {dat: self.dat.drain(0..n).collect()} )
         } else {None}
     }
 
+    // Read the next N bits as an integer, if available.
     pub fn read(&mut self, n: usize) -> Option<u64> {
-        if self.len() >= n {
-            let mut x = 0u64;
-            for b in self.dat.drain(0..n) {
-                x = 2*x + if b {1} else {0};
-            }
-            Some(x)
+        if let Some(tmp) = self.consume(n) {
+            Some(tmp.value())
         } else {None}
     }
 
+    // Evaluate the entire BitStream as an integer.
+    pub fn value(&self) -> u64 {
+        let mut x = 0u64;
+        for b in self.dat.iter() {
+            x = 2*x + if *b {1} else {0};
+        }
+        return x
+    }
+
+    // Add a bitstream onto the end of this one.
     pub fn append(&mut self, mut x: BitStream) {
         self.dat.append(&mut x.dat);
     }
@@ -70,11 +80,47 @@ pub struct Packet {
 }
 
 impl Packet {
+    // Read a single packet from a BitStream.
     pub fn read(src: &mut BitStream) -> Self {
         let ver = src.read(3).unwrap() as u8;
         let typ = src.read(3).unwrap() as u8;
         let dat = Packet::read_contents(src, typ);
         Packet { ver:ver, typ:typ, dat:dat }
+    }
+
+    // Find total version of this packet and all children.
+    // (i.e., Day 16 Part 1 solution.)
+    pub fn ver_total(&self) -> u64 {
+        self.ver as u64 + match &self.dat {
+            PacketContents::Value(_) =>
+                0u64,
+            PacketContents::Packets(inner) =>
+                inner.iter().map(|p| p.ver_total()).sum(),
+        }
+    }
+
+    // Evaluate the expression contained in this packet.
+    // (i.e., Day 16 Part 2 solution.)
+    pub fn evaluate(&self) -> u64 {
+        match (self.typ, &self.dat) {
+            (_, PacketContents::Value(literal)) =>
+                literal.value(),
+            (0, PacketContents::Packets(inner)) =>
+                inner.iter().map(|p| p.evaluate()).sum(),
+            (1, PacketContents::Packets(inner)) =>
+                inner.iter().map(|p| p.evaluate()).product(),
+            (2, PacketContents::Packets(inner)) =>
+                inner.iter().map(|p| p.evaluate()).min().unwrap(),
+            (3, PacketContents::Packets(inner)) =>
+                inner.iter().map(|p| p.evaluate()).max().unwrap(),
+            (5, PacketContents::Packets(inner)) =>
+                if inner[0].evaluate() > inner[1].evaluate() {1} else {0}
+            (6, PacketContents::Packets(inner)) =>
+                if inner[0].evaluate() < inner[1].evaluate() {1} else {0}
+            (7, PacketContents::Packets(inner)) =>
+                if inner[0].evaluate() == inner[1].evaluate() {1} else {0}
+            _ => 0u64,
+        }
     }
 
     fn read_contents(src: &mut BitStream, typ: u8) -> PacketContents {
