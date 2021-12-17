@@ -88,6 +88,21 @@ fn search_part1(r: &Region) -> i64 {
     maxy
 }
 
+// Find the number of possible initial velocities.
+// (Same upper bound, but also check negative dy.)
+fn search_part2(r: &Region) -> usize {
+    assert!(r.xmax > 0);
+    assert!(r.ymax < 0);
+    let mut count = 0usize;
+    for dx in 1..r.xmax+1 {
+        for dy in r.ymin..r.ymin.abs() {
+            let p = Projectile::new(dx, dy);
+            if let Some(_) = p.part1(r) {count += 1}
+        }
+    }
+    count
+}
+
 pub fn solve() {
     let test = Region::new(20, 30, -10, -5);
     let data = Region::new(57, 116, -198, -148);
@@ -98,6 +113,8 @@ pub fn solve() {
     assert_eq!(Projectile::new(17,-4).part1(&test), None);
     assert_eq!(Projectile::new(6,9).part1(&test), Some(45));
     assert_eq!(search_part1(&test), 45);
+    assert_eq!(search_part2(&test), 112);
 
     println!("Part1: {}", search_part1(&data));
+    println!("Part2: {}", search_part2(&data));
 }
