@@ -2,6 +2,7 @@
 /// Copyright 2021 by Alex Utter
 
 #[path = "common.rs"] mod common;
+use std::fmt;
 
 // Find the top-level comma for a string of the form "[?,?]".
 fn find_comma(x: &str) -> Option<usize> {
@@ -21,7 +22,7 @@ fn find_comma(x: &str) -> Option<usize> {
 }
 
 // An "Item" is either a Simple number of a nested Pair.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq)]
 enum Item {
     Simple(u64),
     Nested(Box<Pair>),
@@ -44,11 +45,17 @@ impl Item {
         Item::Nested(Box::new(Pair::from_split(x)))
     }
 
-    // Explode this item, if applicable. (Returns true if modified.)
-    fn explode(&mut self, d:usize) -> bool {
+    // Explode this item, if applicable.
+    //  * Return Some((l,r)) if an explosion occurs.
+    fn explode(&mut self, d:usize) -> Option<(u64,u64)> {
         if let Item::Nested(pair) = self {
-            pair.explode(d+1)
-        } else {false}
+            if d >= 3 {
+                let l = pair.l.value();
+                let r = pair.r.value();
+                *self = Item::Simple(0);
+                Some((l,r))                 // Explosion
+            } else {pair.explode(d+1)}      // Propagate up
+        } else {None}                       // Simple value
     }
 
     // Split this item, if applicable. (Return true if modified.)
@@ -58,26 +65,45 @@ impl Item {
         } else {false}
     }
 
-    // Increment a simple value (e.g., as part of "explode")
-    fn incr_if_simple(&mut self, n:u64) {
-        if let Item::Simple(x) = self {*x += n;}
+    // Increment the leftmost or rightmost simple value.
+    // Returns unused residue if propagation should continue.
+    fn incr_left(&mut self, n:u64) -> u64 {
+        match self {
+            Item::Simple(x) => {*x += n; 0},    // Increment applied
+            Item::Nested(p) => p.l.incr_left(n),
+        }
+    }
+    fn incr_right(&mut self, n:u64) -> u64 {
+        match self {
+            Item::Simple(x) => {*x += n; 0},    // Increment applied
+            Item::Nested(p) => p.r.incr_right(n),
+        }
     }
 
     // Value of a simple element, leftmost value, or rightmost value.
     fn value(&self) -> u64 {
-        if let Item::Simple(n) = self {*n} else {0}
+        if let Item::Simple(x) = self {*x} else {0}
     }
 
     // Find "magnitude" using leftmost and rightmost numbers.
     fn magnitude(&self) -> u64 {
         match self {
-            Item::Simple(n) => *n,
+            Item::Simple(x) => *x,
             Item::Nested(p) => p.magnitude(),
         }
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+impl fmt::Debug for Item {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Item::Simple(x) => write!(f, "{:?}", x),
+            Item::Nested(p) => write!(f, "[{:?},{:?}]", p.l, p.r),
+        }
+    }
+}
+
+#[derive(Clone, Eq, PartialEq)]
 struct Pair {
     l: Item,    // Left component
     r: Item,    // Right component
@@ -99,24 +125,19 @@ impl Pair {
         Pair { l:l, r:r }
     }
 
-    // Explode this pair, if applicable. (Return true if applied.)
-    fn explode(&mut self, d:usize) -> bool {
-        assert!(d < 4);
-        if d == 3 {
-            if let Item::Nested(pair) = &self.l {
-                eprintln!("explode-left: {:?}", pair); //???
-                self.r.incr_if_simple(pair.r.value());
-                self.l = Item::Simple(0);
-                return true
-            }
-            if let Item::Nested(pair) = &self.r {
-                eprintln!("explode-right: {:?}", pair); //???
-                self.l.incr_if_simple(pair.l.value());
-                self.r = Item::Simple(0);
-                return true
-            }
+    // Explode this pair, if applicable.
+    //  * Return Some((l,r)) if an explosion occurs.
+    fn explode(&mut self, d:usize) -> Option<(u64,u64)> {
+        // Will either nested item explode? Check left first.
+        if let Some((l,r)) = self.l.explode(d) {
+            assert_eq!(self.r.incr_left(r), 0);
+            Some((l,0))     // Continue propagating leftward
+        } else if let Some((l,r)) = self.r.explode(d) {
+            assert_eq!(self.l.incr_right(l), 0);
+            Some((0,r))     // Continue propagating rightward
+        } else {
+            None
         }
-        self.l.explode(d) || self.r.explode(d)
     }
 
     // Split this pair, if applicable. (Return true if applied.)
@@ -133,7 +154,7 @@ impl Pair {
     // Reduce this top-level expression.
     fn reduce(&self) -> Pair {
         let mut result = self.clone();
-        while result.explode(0) || result.split() {}
+        while result.explode(0).is_some() || result.split() {}
         result
     }
 
@@ -147,6 +168,12 @@ impl Pair {
     // Find "magnitude" using leftmost and rightmost numbers.
     fn magnitude(&self) -> u64 {
         return 3 * self.l.magnitude() + 2 * self.r.magnitude()
+    }
+}
+
+impl fmt::Debug for Pair {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        writeln!(f, "\n[{:?},{:?}]", self.l, self.r)
     }
 }
 
@@ -164,7 +191,7 @@ fn read_file(filename: &str) -> Vec<Pair> {
 }
 
 pub fn solve() {
-    // Test each of the individual examples.
+    // Test each of the reduction examples.
     assert_eq!(
         Pair::new("[[[[[9,8],1],2],3],4]").reduce(),
         Pair::new("[[[[0,9],2],3],4]"));
@@ -177,25 +204,44 @@ pub fn solve() {
     assert_eq!(
         Pair::new("[[3,[2,[1,[7,3]]]],[6,[5,[4,[3,2]]]]]").reduce(),
         Pair::new("[[3,[2,[8,0]]],[9,[5,[7,0]]]]"));
-    assert_eq!(
-        Pair::new("[[[[4,3],4],4],[7,[[8,4],9]]]").add(&Pair::new("[1,1]")),
-        Pair::new("[[[[0,7],4],[[7,8],[6,0]]],[8,1]]"));
+
+    // Test the simple addition example.
     assert_eq!(
         Pair::new("[[[[4,3],4],4],[7,[[8,4],9]]]").add(&Pair::new("[1,1]")),
         Pair::new("[[[[0,7],4],[[7,8],[6,0]]],[8,1]]"));
 
-    // Example summation problems.
+    // Test each list-summation example.
     let test1 = vec!(
         Pair::new("[1,1]"), Pair::new("[2,2]"), Pair::new("[3,3]"),
         Pair::new("[4,4]"), Pair::new("[5,5]"), Pair::new("[6,6]"));
-    let test2 = read_file("input/test18.txt");
+    let test2 = read_file("input/test18a.txt");
+    let test3 = read_file("input/test18b.txt");
+
     assert_eq!(sum(test1[0..4].iter()),
         Pair::new("[[[[1,1],[2,2]],[3,3]],[4,4]]"));
     assert_eq!(sum(test1[0..5].iter()),
         Pair::new("[[[[3,0],[5,3]],[4,4]],[5,5]]"));
     assert_eq!(sum(test1[0..6].iter()),
         Pair::new("[[[[5,0],[7,4]],[5,5]],[6,6]]"));
+    assert_eq!(sum(test2[0..2].iter()),
+        Pair::new("[[[[4,0],[5,4]],[[7,7],[6,0]]],[[8,[7,7]],[[7,9],[5,0]]]]"));
+    assert_eq!(sum(test2[0..3].iter()),
+        Pair::new("[[[[6,7],[6,7]],[[7,7],[0,7]]],[[[8,7],[7,7]],[[8,8],[8,0]]]]"));
+    assert_eq!(sum(test2[0..4].iter()),
+        Pair::new("[[[[7,0],[7,7]],[[7,7],[7,8]]],[[[7,7],[8,8]],[[7,7],[8,7]]]]"));
+    assert_eq!(sum(test2[0..5].iter()),
+        Pair::new("[[[[7,7],[7,8]],[[9,5],[8,7]]],[[[6,8],[0,8]],[[9,9],[9,0]]]]"));
+    assert_eq!(sum(test2[0..6].iter()),
+        Pair::new("[[[[6,6],[6,6]],[[6,0],[6,7]]],[[[7,7],[8,9]],[8,[8,1]]]]"));
+    assert_eq!(sum(test2[0..7].iter()),
+        Pair::new("[[[[6,6],[7,7]],[[0,7],[7,7]]],[[[5,5],[5,6]],9]]"));
+    assert_eq!(sum(test2[0..8].iter()),
+        Pair::new("[[[[7,8],[6,7]],[[6,8],[0,8]]],[[[7,7],[5,0]],[[5,5],[5,6]]]]"));
+    assert_eq!(sum(test2[0..9].iter()),
+        Pair::new("[[[[7,7],[7,7]],[[8,7],[8,7]]],[[[7,0],[7,7]],9]]"));
     assert_eq!(sum(test2.iter()),
+        Pair::new("[[[[8,7],[7,7]],[[8,6],[7,7]]],[[[0,7],[6,6]],[8,7]]]"));
+    assert_eq!(sum(test3.iter()),
         Pair::new("[[[[6,6],[7,6]],[[7,7],[7,0]]],[[[7,7],[7,7]],[[7,8],[9,9]]]]"));
 
     // Example magnitude calculations.
