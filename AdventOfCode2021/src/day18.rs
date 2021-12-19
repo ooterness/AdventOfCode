@@ -4,6 +4,8 @@
 #[path = "common.rs"] mod common;
 use std::fmt;
 
+const VERBOSE: bool = false;
+
 // Find the top-level comma for a string of the form "[?,?]".
 fn find_comma(x: &str) -> Option<usize> {
     let mut depth = 0usize;
@@ -41,10 +43,6 @@ impl Item {
         }
     }
 
-    fn from_split(x: u64) -> Item {
-        Item::Nested(Box::new(Pair::from_split(x)))
-    }
-
     // Explode this item, if applicable.
     //  * Return Some((l,r)) if an explosion occurs.
     fn explode(&mut self, d:usize) -> Option<(u64,u64)> {
@@ -60,9 +58,13 @@ impl Item {
 
     // Split this item, if applicable. (Return true if modified.)
     fn split(&mut self) -> bool {
-        if let Item::Nested(pair) = self {
-            pair.split()
-        } else {false}
+        let x = self.value();
+        if x >= 10 {
+            *self = Item::Nested(Box::new(Pair::from_split(x))); true
+        } else { match self {
+            Item::Simple(_) => false,
+            Item::Nested(p) => p.split(),
+        } }
     }
 
     // Increment the leftmost or rightmost simple value.
@@ -142,19 +144,16 @@ impl Pair {
 
     // Split this pair, if applicable. (Return true if applied.)
     fn split(&mut self) -> bool {
-        if let Item::Simple(n) = self.l {
-            if n >= 10 {self.l = Item::from_split(n); return true}
-        }
-        if let Item::Simple(n) = self.r {
-            if n >= 10 {self.r = Item::from_split(n); return true}
-        }
         self.l.split() || self.r.split()
     }
 
     // Reduce this top-level expression.
     fn reduce(&self) -> Pair {
+        if VERBOSE {println!("Original: {:?}", self);}
         let mut result = self.clone();
-        while result.explode(0).is_some() || result.split() {}
+        while result.explode(0).is_some() || result.split() {
+            if VERBOSE {println!("Reduced: {:?}", result);}
+        }
         result
     }
 
@@ -173,7 +172,7 @@ impl Pair {
 
 impl fmt::Debug for Pair {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        writeln!(f, "\n[{:?},{:?}]", self.l, self.r)
+        write!(f, "[{:?},{:?}]", self.l, self.r)
     }
 }
 
@@ -257,7 +256,7 @@ pub fn solve() {
         Pair::new("[[[[5,0],[7,4]],[5,5]],[6,6]]").magnitude());
     assert_eq!(3488,
         Pair::new("[[[[8,7],[7,7]],[[8,6],[7,7]]],[[[0,7],[6,6]],[8,7]]]").magnitude());
-    assert_eq!(4140, sum(test2.iter()).magnitude());
+    assert_eq!(4140, sum(test3.iter()).magnitude());
 
     // Solve the real homework problem.
     let data = read_file("input/input18.txt");
