@@ -2,10 +2,11 @@
 /// Copyright 2021 by Alex Utter
 
 #[path = "common.rs"] mod common;
+use std::cmp::max;
 use std::collections::HashMap;
 use std::collections::HashSet;
 
-const VERBOSE:bool = true;
+const VERBOSE:bool = false;
 
 // An XYZ coordinate (usually relative coordinates of a Beacon)
 #[derive(Clone, Eq, Hash, PartialEq)]
@@ -16,7 +17,11 @@ struct Xyz {
 }
 
 impl Xyz {
-    fn new(line:&str) -> Xyz {
+    fn new() -> Xyz {
+        Xyz { x:0, y:0, z:0 }
+    }
+
+    fn from(line:&str) -> Xyz {
         let xyz = common::split_str_as::<i64>(line, ',');
         assert_eq!(xyz.len(), 3);
         Xyz { x:xyz[0], y:xyz[1], z:xyz[2] }
@@ -28,6 +33,14 @@ impl Xyz {
         let dy = (self.y - arg.y).abs() as u64;
         let dz = (self.z - arg.z).abs() as u64;
         dx*dx + dy*dy + dz*dz
+    }
+
+    // Manhattan-distance to another point.
+    fn dist_man(&self, arg:&Xyz) -> u64 {
+        let dx = (self.x - arg.x).abs() as u64;
+        let dy = (self.y - arg.y).abs() as u64;
+        let dz = (self.z - arg.z).abs() as u64;
+        dx + dy + dz
     }
 
     // Add or subtract coordinates.
@@ -72,11 +85,15 @@ impl Xyz {
     }
 }
 
+// Distance sets provide a rotation-invariant check for common points.
+type DistanceMap = HashSet<u64>;
+
 // A scanner is a list of relative beacon coordinates.
 #[derive(Clone)]
 struct Scanner {
     idx:  usize,
     beac: HashSet<Xyz>,
+    scan: HashSet<Xyz>,
 }
 
 impl Scanner {
@@ -90,9 +107,12 @@ impl Scanner {
         let mut beac = HashSet::new();
         while let Some(line) = lines.next() {
             if line.is_empty() {break;}
-            beac.insert(Xyz::new(line));
+            beac.insert(Xyz::from(line));
         }
-        Some( Scanner { idx:idx, beac:beac } )
+        // All coordinates are relative to the origin.
+        let mut scan = HashSet::new();
+        scan.insert(Xyz::new());
+        Some( Scanner { idx:idx, beac:beac, scan:scan} )
     }
 
     // Count beacons in this combined scan.
@@ -101,8 +121,8 @@ impl Scanner {
     }
 
     // Distance sets provide a rotation-invariant check for common points.
-    fn dmap(&self) -> HashSet<u64> {
-        let mut dist = HashSet::new();
+    fn dmap(&self) -> DistanceMap {
+        let mut dist = DistanceMap::new();
         for (na,a) in self.beac.iter().enumerate() {
             for (nb,b) in self.beac.iter().enumerate() {
                 if nb > na {dist.insert(a.dist_sq(b));}
@@ -114,11 +134,11 @@ impl Scanner {
     // Apply operation to all beacons in the set.
     fn add(&self, arg:&Xyz) -> Scanner {
         let beac = self.beac.iter().map(|b| b.add(arg));
-        Scanner { idx:self.idx, beac:beac.collect() }
+        Scanner { idx:self.idx, beac:beac.collect(), scan:self.scan.clone() }
     }
     fn rotate(&self, r:usize) -> Scanner {
         let beac = self.beac.iter().map(|b| b.rotate(r));
-        Scanner { idx:self.idx, beac:beac.collect() }
+        Scanner { idx:self.idx, beac:beac.collect(), scan:self.scan.clone() }
     }
 
     // Attempt to align and merge a new Scanner with this one.
@@ -147,6 +167,7 @@ impl Scanner {
                     scan.idx, vbest.0, count);
             }
             for b in align.beac.into_iter() {self.beac.insert(b);}
+            self.scan.insert(vbest.1);
             true        // Success!
         } else {false}  // No match found
     }
@@ -166,7 +187,8 @@ fn read_file(filename: &str) -> Vec<Scanner> {
 // Merge all scanners into a single coordinate frame.
 fn part1(scans: &Vec<Scanner>) -> Option<Scanner> {
     // Calculate distance maps for each scanner.
-    let dmaps: Vec<HashSet<u64>> = scans.iter().map(|s| s.dmap()).collect();
+    let dmaps: Vec<DistanceMap> =
+        scans.iter().map(|s| s.dmap()).collect();
     // Arbitrarily start from scanner #0.
     let mut common_beac = scans[0].clone();
     let mut common_dmap = dmaps[0].clone(); 
@@ -199,6 +221,17 @@ fn part1(scans: &Vec<Scanner>) -> Option<Scanner> {
     return Some(common_beac)
 }
 
+// Find Maximum manhattan distance between Scanners.
+fn part2(x: &Scanner) -> u64 {
+    let mut best = 0u64;
+    for a in x.scan.iter() {
+        for b in x.scan.iter() {
+            best = max(best, a.dist_man(b));
+        }
+    }
+    best
+}
+
 pub fn solve() {
     let test = read_file("input/test19.txt");
     let data = read_file("input/input19.txt");
@@ -208,4 +241,8 @@ pub fn solve() {
     assert_eq!(test1.count(), 79);
     let data1 = part1(&data).unwrap();
     println!("Part1: {}", data1.count());
+
+    // Part 2 solution measures the extent of the complete map.
+    assert_eq!(part2(&test1), 3621);
+    println!("Part2: {}", part2(&data1));
 }
