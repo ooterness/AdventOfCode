@@ -184,6 +184,20 @@ fn sum<'a>(mut iter: impl Iterator<Item=&'a Pair>) -> Pair {
     sum
 }
 
+fn largest_mag(data: &Vec<Pair>) -> u64 {
+    // Try every pairwise summation.
+    // (Note that A+B != B+A, so we must try both options.)
+    let mut best = 0u64;
+    for a in 0..data.len() {
+        for b in 0..data.len() {
+            if a == b {continue}
+            let next = data[a].add(&data[b]).magnitude();
+            best = core::cmp::max(best, next);
+        }
+    }
+    best
+}
+
 fn read_file(filename: &str) -> Vec<Pair> {
     let lines = common::read_lines(filename);
     lines.iter().map(|x| Pair::new(x)).collect()
@@ -258,7 +272,11 @@ pub fn solve() {
         Pair::new("[[[[8,7],[7,7]],[[8,6],[7,7]]],[[[0,7],[6,6]],[8,7]]]").magnitude());
     assert_eq!(4140, sum(test3.iter()).magnitude());
 
-    // Solve the real homework problem.
+    // Solve the Part-1 homework problem.
     let data = read_file("input/input18.txt");
     println!("Part1: {}", sum(data.iter()).magnitude());
+
+    // Solve the Part-2 homework problem.
+    assert_eq!(3993, largest_mag(&test3));
+    println!("Part2: {}", largest_mag(&data));
 }
