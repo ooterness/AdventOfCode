@@ -2,6 +2,7 @@
 /// Copyright 2021 by Alex Utter
 
 #[path = "common.rs"] mod common;
+use std::collections::HashMap;
 use std::collections::HashSet;
 
 const VERBOSE:bool = true;
@@ -102,9 +103,9 @@ impl Scanner {
     // Distance sets provide a rotation-invariant check for common points.
     fn dmap(&self) -> HashSet<u64> {
         let mut dist = HashSet::new();
-        for a in self.beac.iter() {
-            for b in self.beac.iter() {
-                if a != b {dist.insert(a.dist_sq(b));}
+        for (na,a) in self.beac.iter().enumerate() {
+            for (nb,b) in self.beac.iter().enumerate() {
+                if nb > na {dist.insert(a.dist_sq(b));}
             }
         }
         dist
@@ -122,26 +123,32 @@ impl Scanner {
 
     // Attempt to align and merge a new Scanner with this one.
     fn merge(&mut self, scan: &Scanner) -> bool {
-        // Trial and error on every pairwise alignment option.
+        // Trial and error voting on every possible pairwise alignment.
+        type Delta = (usize,Xyz);
+        let mut votes: HashMap<Delta,usize> = HashMap::new();
+        let mut vbest: Delta = (0, Xyz {x:0, y:0, z:0});
+        let mut vmax:  usize = 0;
         for r in 0..24usize {
-            let rotate = scan.rotate(r);
             for a in self.beac.iter() {
-                for b in rotate.beac.iter() {
-                    // How many common points in the realigned point-map?
-                    let align = rotate.add(&a.sub(b));
-                    let count = self.beac.intersection(&align.beac).count();
-                    if count >= 12 {
-                        if VERBOSE {
-                            println!("Merging scanner #{} @{} C{}",
-                                scan.idx, r, count);
-                        }
-                        for b in align.beac.into_iter() {self.beac.insert(b);}
-                        return true;    // Success!
-                    }
+                for b in scan.beac.iter() {
+                    let delta = (r, a.sub(&b.rotate(r)));
+                    let entry = votes.entry(delta.clone()).or_insert(0usize);
+                    *entry += 1; // Increment vote count
+                    if *entry > vmax {vmax = *entry; vbest = delta;}
                 }
             }
         }
-        false   // No match found
+        // Apply the most popular alignment.
+        let align = scan.rotate(vbest.0).add(&vbest.1);
+        let count = self.beac.intersection(&align.beac).count();
+        if count >= 12 {
+            if VERBOSE {
+                println!("Merging scanner #{} @{} C{}",
+                    scan.idx, vbest.0, count);
+            }
+            for b in align.beac.into_iter() {self.beac.insert(b);}
+            true        // Success!
+        } else {false}  // No match found
     }
 }
 
