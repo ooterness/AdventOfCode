@@ -4,8 +4,10 @@
 #[path = "common.rs"] mod common;
 use std::collections::HashSet;
 
+const VERBOSE:bool = true;
+
 // An XYZ coordinate (usually relative coordinates of a Beacon)
-#[derive(Clone)]
+#[derive(Clone, Eq, Hash, PartialEq)]
 struct Xyz {
     x: i64,
     y: i64,
@@ -72,23 +74,24 @@ impl Xyz {
 // A scanner is a list of relative beacon coordinates.
 #[derive(Clone)]
 struct Scanner {
-    beac: Vec<Xyz>,
+    idx:  usize,
+    beac: HashSet<Xyz>,
 }
 
 impl Scanner {
-    fn new<'a>(lines: &mut impl Iterator<Item=&'a String>) -> Option<Scanner> {
+    fn new<'a>(idx:usize, lines: &mut impl Iterator<Item=&'a String>) -> Option<Scanner> {
         // Check for header, e.g., "--- scanner 3 ---"
         if let Some(line) = lines.next() {
             let ch = line.chars().next().unwrap_or('x');
             if ch != '-' {return None;}
         } else {return None;}
         // Read beacons until we reach a blank line.
-        let mut beac = Vec::new();
+        let mut beac = HashSet::new();
         while let Some(line) = lines.next() {
             if line.is_empty() {break;}
-            beac.push(Xyz::new(line));
+            beac.insert(Xyz::new(line));
         }
-        Some( Scanner { beac:beac } )
+        Some( Scanner { idx:idx, beac:beac } )
     }
 
     // Count beacons in this combined scan.
@@ -99,9 +102,9 @@ impl Scanner {
     // Distance sets provide a rotation-invariant check for common points.
     fn dmap(&self) -> HashSet<u64> {
         let mut dist = HashSet::new();
-        for a in 0..self.beac.len()-1 {
-            for b in a+1..self.beac.len() {
-                dist.insert(self.beac[a].dist_sq(&self.beac[b]));
+        for a in self.beac.iter() {
+            for b in self.beac.iter() {
+                if a != b {dist.insert(a.dist_sq(b));}
             }
         }
         dist
@@ -110,20 +113,35 @@ impl Scanner {
     // Apply operation to all beacons in the set.
     fn add(&self, arg:&Xyz) -> Scanner {
         let beac = self.beac.iter().map(|b| b.add(arg));
-        Scanner { beac:beac.collect() }
-    }
-    fn sub(&self, arg:&Xyz) -> Scanner {
-        let beac = self.beac.iter().map(|b| b.sub(arg));
-        Scanner { beac:beac.collect() }
+        Scanner { idx:self.idx, beac:beac.collect() }
     }
     fn rotate(&self, r:usize) -> Scanner {
         let beac = self.beac.iter().map(|b| b.rotate(r));
-        Scanner { beac:beac.collect() }
+        Scanner { idx:self.idx, beac:beac.collect() }
     }
 
     // Attempt to align and merge a new Scanner with this one.
     fn merge(&mut self, scan: &Scanner) -> bool {
-        false   //???
+        // Trial and error on every pairwise alignment option.
+        for r in 0..24usize {
+            let rotate = scan.rotate(r);
+            for a in self.beac.iter() {
+                for b in rotate.beac.iter() {
+                    // How many common points in the realigned point-map?
+                    let align = rotate.add(&a.sub(b));
+                    let count = self.beac.intersection(&align.beac).count();
+                    if count >= 12 {
+                        if VERBOSE {
+                            println!("Merging scanner #{} @{} C{}",
+                                scan.idx, r, count);
+                        }
+                        for b in align.beac.into_iter() {self.beac.insert(b);}
+                        return true;    // Success!
+                    }
+                }
+            }
+        }
+        false   // No match found
     }
 }
 
@@ -132,7 +150,7 @@ fn read_file(filename: &str) -> Vec<Scanner> {
     let file = common::read_lines(filename);
     let mut lines = file.iter();
     let mut scans = Vec::new();
-    while let Some(scan) = Scanner::new(&mut lines) {
+    while let Some(scan) = Scanner::new(scans.len(), &mut lines) {
         scans.push(scan);
     }
     scans
@@ -156,18 +174,16 @@ fn part1(scans: &Vec<Scanner>) -> Option<Scanner> {
             if consumed[n] {continue;}
             // Compare distance maps: Are there enough points in common?
             // (Expect at least 12 common points = 12*11/2 common distances.)
-            let cmp = common_dmap.union(&dmaps[n]).count();
+            let cmp = common_dmap.intersection(&dmaps[n]).count();
             if cmp < 66 {continue;}
-            // Possible match, try all 24 possible rotations.
-            for r in 0..24usize {
-                if common_beac.merge(&scans[n].rotate(r)) {
-                    // Merge successful, update common state.
-                    consumed[n] = true;
-                    mcount += 1;
-                    pending -= 1;
-                    for d in dmaps[n].iter() {common_dmap.insert(*d);}
-                    break;
-                }
+            // Possible match, attempt to merge.
+            if common_beac.merge(&scans[n]) {
+                // Merge successful, update common state.
+                consumed[n] = true;
+                mcount += 1;
+                pending -= 1;
+                for d in dmaps[n].iter() {common_dmap.insert(*d);}
+                break;
             }
         }
         // If we couldn't merge anything, abort to avoid infinite loop.
