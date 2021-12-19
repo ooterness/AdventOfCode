@@ -1,4 +1,4 @@
-/// Day 17: https://adventofcode.com/2021/day/17
+/// Day 18: https://adventofcode.com/2021/day/18
 /// Copyright 2021 by Alex Utter
 
 #[path = "common.rs"] mod common;
