@@ -8,63 +8,6 @@
 #include <string>
 #include "intcode.h"
 
-// Print contents of an Intcode-ASCII stream.
-// (e.g., "72,101,108,108,111" --> "Hello")
-void print_ascii(std::stringstream& strm)
-{
-    // Read and print each character.
-    int64_t next;
-    while (read_next(strm, next)) {
-        std::cout << (char)next;
-    }
-
-    // Clear EOF flag for next iteration.
-    strm.clear();
-}
-
-// Parse command(s) from a given text source.
-void write_command(std::ostream& strm, const char* str)
-{
-    while (*str) {
-        unsigned next = (unsigned char)(*str++);
-        strm << next << ",";
-    }
-    strm << 10 << ",";  // End-of-input token
-}
-
-// Read one line of user input and provide it as an Intcode-ASCII stream.
-// (e.g., "Hello" --> "72,101,108,108,111,10")
-// Return true if user enters "quit".
-unsigned read_ascii(std::stringstream& strm)
-{
-    // Clear EOF flags on the input stream.
-    strm.clear();
-
-    // Read one line of user data.
-    static const unsigned MAX_LINE = 256;
-    char line[MAX_LINE];
-    std::cin.getline(line, MAX_LINE);
-
-    // Check for special commands...
-    unsigned len = strlen(line);
-    if (len >= 4 && line[0] == 'q' && line[1] == 'u' && line[2] == 'i' && line[3] == 't')
-        return 1;   // Quit command
-    if (len >= 4 && line[0] == 'e' && line[1] == 'x' && line[2] == 'i' && line[3] == 't')
-        return 1;   // Quit command
-    if (len >= 4 && line[0] == 's' && line[1] == 'a' && line[2] == 'v' && line[3] == 'e')
-        return 2;   // Save-state
-    if (len >= 4 && line[0] == 'l' && line[1] == 'o' && line[2] == 'a' && line[3] == 'd')
-        return 3;   // Load-state
-    if (len >= 5 && line[0] == 's' && line[1] == 't' && line[2] == 'a' && line[3] == 'r' && line[4] == 't')
-        return 4;   // Auto-start
-    if (len >= 5 && line[0] == 'b' && line[1] == 'r' && line[2] == 'u' && line[3] == 't' && line[4] == 'e')
-        return 5;   // Brute-force search
-
-    // Otherwise, write comma-delimited contents to the stream.
-    write_command(strm, line);
-    return 0;           // Continue / normal input
-}
-
 // Write commands required to pick up every safe item.
 void quick_start(std::stringstream& strm)
 {
@@ -165,7 +108,7 @@ int main()
     static const unsigned RUNMODE =
         Program::RUNMODE_LOADFILE |
         Program::RUNMODE_INTERACTIVE;
-    Program prog("advent_p25.txt", RUNMODE);
+    Program prog("../input/advent_p25.txt", RUNMODE);
     std::list<Program> saves;
     saves.push_back(prog);  // Stack of saved states
     std::stringstream strm_in, strm_out;
