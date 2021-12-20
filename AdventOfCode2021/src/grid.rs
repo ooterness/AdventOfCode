@@ -31,6 +31,15 @@ pub struct Grid<T> {
 }
 
 #[allow(dead_code)]
+impl<T:Clone> Grid<T> {
+    pub fn empty(data: &T, rc: &GridSize) -> Grid<T> {
+        let erow = vec![data.clone();rc.c];
+        let emat = vec![erow.clone();rc.r];
+        Grid { data:emat.clone(), size:rc.clone() }
+    }
+}
+
+#[allow(dead_code)]
 impl<T> Grid<T> {
     pub fn new(data: Vec<Vec<T>>) -> Grid<T> {
         // Measure size using the first row.
@@ -67,11 +76,13 @@ impl<T> Grid<T> {
 }
 
 /// Iterator over every row/column coordinate in a Grid.
+#[allow(dead_code)]
 pub struct GridIterator {
     size: GridSize,
     next: GridSize,
 }
 
+#[allow(dead_code)]
 impl<'a> Iterator for GridIterator {
     type Item = RowCol;
 
@@ -107,6 +118,7 @@ impl RowCol {
     }
 
     // Move one space in a given direction
+    pub fn cc(&self) -> RowCol { self.nw_by(0) }
     pub fn nw(&self) -> RowCol { self.nw_by(1) }
     pub fn nn(&self) -> RowCol { self.nn_by(1) }
     pub fn ne(&self) -> RowCol { self.ne_by(1) }
