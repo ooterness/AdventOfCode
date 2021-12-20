@@ -66,6 +66,7 @@ pub fn solve() {
     let test = common::read_lines("input/test20.txt");
     let data = common::read_lines("input/input20.txt");
 
+    // Part 1 tests
     let testf = read_filter(&test[0]);
     let test0 = read_image(&test[2..]);
     let test1 = enhance(&test0, &testf);
@@ -74,9 +75,20 @@ pub fn solve() {
     assert_eq!(count(&test1), 24);
     assert_eq!(count(&test2), 35);
 
+    // Part 1 data
     let dataf = read_filter(&data[0]);
     let data0 = read_image(&data[2..]);
     let data1 = enhance(&data0, &dataf);
     let data2 = enhance(&data1, &dataf);
     println!("Part1: {}", count(&data2));
+
+    // Part 2 tests
+    let mut test50 = test2.clone();
+    for _ in 2..50 {test50 = enhance(&test50, &testf);}
+    assert_eq!(count(&test50), 3351);
+
+    // Part 2 data
+    let mut data50 = data2.clone();
+    for _ in 2..50 {data50 = enhance(&data50, &dataf);}
+    println!("Part2: {}", count(&data50));
 }
