@@ -38,7 +38,7 @@ impl PartialOrd for RowColScore {
 
 // Find lowest-cost path from upper to lower corner.
 // https://en.wikipedia.org/wiki/Dijkstra%27s_algorithm#Pseudocode
-fn djikstra(grid: &CaveGrid) -> usize {
+fn dijkstra(grid: &CaveGrid) -> usize {
     let mut best:   HashMap<RowCol,usize> = HashMap::new();
     let mut done:   HashSet<RowCol> = HashSet::new();
     let mut queue:  BinaryHeap<RowColScore> = BinaryHeap::new();
@@ -92,11 +92,11 @@ pub fn solve() {
     let test:CaveGrid = grid::read_grid("input/test15.txt");
     let data:CaveGrid = grid::read_grid("input/input15.txt");
 
-    assert_eq!(djikstra(&test), 40);
-    println!("Part1: {}", djikstra(&data));
+    assert_eq!(dijkstra(&test), 40);
+    println!("Part1: {}", dijkstra(&data));
 
     let test5 = tile5x5(&test);
     let data5 = tile5x5(&data);
-    assert_eq!(djikstra(&test5), 315);
-    println!("Part1: {}", djikstra(&data5));
+    assert_eq!(dijkstra(&test5), 315);
+    println!("Part1: {}", dijkstra(&data5));
 }
