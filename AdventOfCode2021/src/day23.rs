@@ -101,6 +101,7 @@ impl GameState {
 
     // Is a given stretch of hallway empty? (Inclusive bounds)
     fn hall_empty(&self, lo:usize, hi:usize) -> bool {
+        assert!(is_hall(lo) && is_hall(hi) && lo <= hi);
         self.rm[lo..hi+1].iter().all(|&r| r == RM_EMPTY)
     }
 
@@ -151,7 +152,7 @@ impl GameState {
             // Never move to one of the entranceways.
             if to == 2 || to == 4 || to == 6 || to == 8 {return None;}
             // Can't leave lower cell if upper cell is occupied.
-            if from > 14 && self.rm[from-4] != RM_EMPTY {return None;}
+            if from >= RM_HALL_LO && self.rm[from-4] != RM_EMPTY {return None;}
         }
         // Check if the required stretch of hallway is clear.
         if let Some(n) = self.path(from, to) {
@@ -213,7 +214,7 @@ impl PartialOrd for GameState {
 
 // Find lowest-cost path to the winning state.
 // https://en.wikipedia.org/wiki/Dijkstra%27s_algorithm#Pseudocode
-fn dijkstra(start: &GameState) -> u64 {
+fn dijkstra(start: &GameState) -> Option<u64> {
     let mut best:   HashMap<Rooms,u64> = HashMap::new();
     let mut done:   HashSet<Rooms> = HashSet::new();
     let mut queue:  BinaryHeap<GameState> = BinaryHeap::new();
@@ -228,7 +229,7 @@ fn dijkstra(start: &GameState) -> u64 {
     // Keep popping from priority queue until we find the solution.
     while let Some(state) = queue.pop() {
         // Stop immediately if we've reached the end node.
-        if state.rm == win.rm {return state.cost;}
+        if state.rm == win.rm {return Some(state.cost);}
         // Skip nodes that we've already visited.
         if !done.insert(state.rm) {continue;}
         // Optionally print current state if verbose.
@@ -242,13 +243,13 @@ fn dijkstra(start: &GameState) -> u64 {
             }
         }
     }
-    return u64::MAX
+    return None
 }
 
 pub fn solve() {
     let test = GameState::new("BCBDADCA");
-    let data = GameState::new("ADBCBCAC");
+    let data = GameState::new("ADBDBCAC");
 
-    assert_eq!(dijkstra(&test), 12521);
-    println!("Part1: {}", dijkstra(&data));
+    assert_eq!(dijkstra(&test).unwrap(), 12521);
+    println!("Part1: {}", dijkstra(&data).unwrap());
 }
