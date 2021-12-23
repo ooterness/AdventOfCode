@@ -3,31 +3,86 @@
 
 #[path = "common.rs"] mod common;
 
-fn clamp(n:i64) -> i64 {
-    if n < -50 {-50} else if n > 50 {50} else {n}
+const VERBOSE:bool = true;
+
+// Given 4 elements, create a sorted de-duplicated set.
+fn sortify(a:i64, b:i64, c:i64, d:i64) -> Vec<i64> {
+    let mut abcd = vec![a,b,c,d];
+    abcd.sort();    // Sort the vector
+    abcd.dedup();   // Remove consecutive duplicates
+    abcd
 }
 
+#[derive(Clone, Copy, Eq, PartialEq)]
 struct Xyz {
     x: i64,
     y: i64,
     z: i64,
 }
 
-impl Xyz {
-    fn clamp(&self) -> Xyz {
-        Xyz { x:clamp(self.x), y:clamp(self.y), z:clamp(self.z) }
+#[derive(Clone, Copy, Eq, PartialEq)]
+struct Cube {
+    a: Xyz,
+    b: Xyz,
+}
+
+type Cubes = Vec<Cube>;
+
+impl Cube {
+    // Is a point inside this cuboid?
+    fn contains(&self, p:&Xyz) -> bool {
+        self.a.x <= p.x && p.x < self.b.x &&
+        self.a.y <= p.y && p.y < self.b.y &&
+        self.a.z <= p.z && p.z < self.b.z
     }
 
-    fn to_idx(&self) -> usize {
-        let x = (self.clamp().x + 50) as usize;
-        let y = (self.clamp().y + 50) as usize;
-        let z = (self.clamp().z + 50) as usize;
-        x + 101*(y + 101*z)
+    // Volume of this cuboid.
+    fn volume(&self) -> u64 {
+        let dx = (self.b.x - self.a.x) as u64;
+        let dy = (self.b.y - self.a.y) as u64;
+        let dz = (self.b.z - self.a.z) as u64;
+        dx * dy * dz
+    }
+
+    // Subtract a cuboid from the current volume to several smaller volumes.
+    fn sub(&self, other:&Cube) -> Cubes {
+        // Quickly check for the no-overlap case.
+        if (self.b.x < other.a.x) || (self.b.y < other.a.y) || (self.b.z < other.a.z) ||
+           (other.b.x < self.a.x) || (other.b.y < self.a.y) || (other.b.z < self.a.z) {
+            return vec![self.clone()];
+        }
+        // Find the set of ordered unique bounding coordinates.
+        // This forms a set of up to 27 possible sub-volumes.
+        let xx = sortify(self.a.x, self.b.x, other.a.x, other.b.x);
+        let yy = sortify(self.a.y, self.b.y, other.a.y, other.b.y);
+        let zz = sortify(self.a.z, self.b.z, other.a.z, other.b.z);
+        // Test a point in each sub-volume to see if we should keep it.
+        let mut result = Vec::new();
+        for nx in 1..xx.len() {
+            for ny in 1..yy.len() {
+                for nz in 1..zz.len() {
+                    let p0 = Xyz { x:xx[nx-1], y:yy[ny-1], z:zz[nz-1] };
+                    if self.contains(&p0) && !other.contains(&p0) {
+                        let p1 = Xyz { x:xx[nx], y:yy[ny], z:zz[nz] };
+                        result.push(Cube {a:p0, b:p1} )
+                    }
+                }
+            }
+        }
+        return result
     }
 }
 
+fn sub(xx:&Cubes, y:&Cube) -> Cubes {
+    let mut result = Vec::new();
+    for x in xx {
+        result.append(&mut x.sub(y));
+    }
+    return result
+}
+
 struct Command {
-    range: (Xyz, Xyz),
+    range: Cube,
     value: bool,
 }
 
@@ -47,51 +102,39 @@ impl Command {
         }
         vv.push(ss*tt);
         // Convert those integers to a min/max range.
+        // Increment upper coordinates by one to simplify edge cases.
         assert_eq!(vv.len(), 9);
         assert!(vv[0] <= vv[2] && vv[3] <= vv[5] && vv[6] <= vv[8]);
-        let v0 = Xyz {x:vv[0], y:vv[3], z:vv[6]};
-        let v1 = Xyz {x:vv[2], y:vv[5], z:vv[8]};
-        Command { value:bb, range:(v0,v1) }
+        let v0 = Xyz {x:vv[0]+0, y:vv[3]+0, z:vv[6]+0};
+        let v1 = Xyz {x:vv[2]+1, y:vv[5]+1, z:vv[8]+1};
+        Command { range:Cube{a:v0, b:v1}, value:bb }
     }
 
-    fn outside(&self) -> bool {
-        (self.range.0.x < -50 && self.range.1.x < -50) ||
-        (self.range.0.y < -50 && self.range.1.y < -50) ||
-        (self.range.0.z < -50 && self.range.1.z < -50) ||
-        (self.range.0.x > 50 && self.range.1.x > 50) ||
-        (self.range.0.y > 50 && self.range.1.y > 50) ||
-        (self.range.0.z > 50 && self.range.1.z > 50)
-    }
-}
-
-const NCUBES:usize = 101*101*101;
-
-struct Cubes {
-    cubes: Vec<bool>,
-}
-
-impl Cubes {
-    fn new() -> Cubes {
-        Cubes { cubes:vec![false;NCUBES] }
-    }
-
-    fn apply(&mut self, cmd: &Command) {
-        if cmd.outside() {return;}
-        let v0 = cmd.range.0.clamp();
-        let v1 = cmd.range.1.clamp();
-        for x in v0.x..v1.x+1 {
-            for y in v0.y..v1.y+1 {
-                for z in v0.z..v1.z+1 {
-                    let vv = Xyz {x:x, y:y, z:z};
-                    self.cubes[vv.to_idx()] = cmd.value;
-                }
+    // Apply this command to generate a new set of cubes.
+    fn apply(&self, cubes:&Cubes) -> Cubes {
+        if self.value {
+            // "On" command: Add unique part(s) of this cube.
+            // (i.e., Subtract all other cubes to find the new bits.)
+            let mut result = vec![self.range];
+            for cube in cubes {
+                result = sub(&result, cube);
             }
+            result.append(&mut cubes.clone()); result
+        } else {
+            // "Off" command: Subtract this cube from all others.
+            sub(cubes, &self.range)
         }
     }
+}
 
-    fn count(&self) -> usize {
-        self.cubes.iter().filter(|&b| *b).count()
+fn run(cmds: &Vec<Command>) -> Cubes {
+    // Starting from the empty set, apply each command.
+    let mut cubes = Vec::new();
+    for (n,cmd) in cmds.iter().enumerate() {
+        cubes = cmd.apply(&cubes);
+        if VERBOSE {eprintln!("Step {}: {} / {}", n, cubes.len(), part2(&cubes));}
     }
+    return cubes
 }
 
 fn read_commands(filename: &str) -> Vec<Command>
@@ -100,18 +143,29 @@ fn read_commands(filename: &str) -> Vec<Command>
     lines.iter().map(|l| Command::new(l)).collect()
 }
 
-fn part1(cmds: &Vec<Command>) -> usize {
-    let mut cubes = Cubes::new();
-    for cmd in cmds.iter() {cubes.apply(cmd);}
-    cubes.count()
+// Find total volume in the designated bounding box.
+fn part1(x: &Cubes) -> u64 {
+    let bound = Cube { a:Xyz {x:-50, y:-50, z:-50} ,
+                       b:Xyz {x: 51, y: 51, z: 51} };
+    let y = sub(x, &bound); // Subtract the bounding box
+    part2(x) - part2(&y)    // Difference is the inner set
+}
+
+// Find total volume of all cubes.
+fn part2(x: &Cubes) -> u64 {
+    x.iter().map(|c| c.volume()).sum()
 }
 
 pub fn solve() {
-    let test1 = read_commands("input/test22a.txt");
-    let test2 = read_commands("input/test22b.txt");
-    let input = read_commands("input/input22.txt");
+    let test1 = run(&read_commands("input/test22a.txt"));
+    let test2 = run(&read_commands("input/test22b.txt"));
+    let test3 = run(&read_commands("input/test22c.txt"));
+    let input = run(&read_commands("input/input22.txt"));
 
     assert_eq!(part1(&test1), 39);
     assert_eq!(part1(&test2), 590784);
+    assert_eq!(part1(&test3), 474140);
+    assert_eq!(part2(&test3), 2758514936282235);
     println!("Part1: {}", part1(&input));
+    println!("Part2: {}", part2(&input));
 }
