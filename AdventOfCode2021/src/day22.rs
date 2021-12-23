@@ -3,7 +3,8 @@
 
 #[path = "common.rs"] mod common;
 
-const VERBOSE:bool = true;
+const ADD_UNIQUE:bool   = false;    // Filter unique during add or at end?
+const VERBOSE:bool      = false;    // Print debug info?
 
 // Given 4 elements, create a sorted de-duplicated set.
 fn sortify(a:i64, b:i64, c:i64, d:i64) -> Vec<i64> {
@@ -44,31 +45,56 @@ impl Cube {
         dx * dy * dz
     }
 
-    // Subtract a cuboid from the current volume to several smaller volumes.
-    fn sub(&self, other:&Cube) -> Cubes {
-        // Quickly check for the no-overlap case.
-        if (self.b.x < other.a.x) || (self.b.y < other.a.y) || (self.b.z < other.a.z) ||
-           (other.b.x < self.a.x) || (other.b.y < self.a.y) || (other.b.z < self.a.z) {
-            return vec![self.clone()];
-        }
+    // Does this cube overlap another cube?
+    fn disjoint(&self, other:&Cube) -> bool {
+        (self.b.x < other.a.x) || (self.b.y < other.a.y) || (self.b.z < other.a.z) ||
+        (other.b.x < self.a.x) || (other.b.y < self.a.y) || (other.b.z < self.a.z)
+    }
+
+    // Get a list of sub-volumes for intersection calculations.
+    fn subvol(&self, other:&Cube) -> Cubes {
         // Find the set of ordered unique bounding coordinates.
-        // This forms a set of up to 27 possible sub-volumes.
         let xx = sortify(self.a.x, self.b.x, other.a.x, other.b.x);
         let yy = sortify(self.a.y, self.b.y, other.a.y, other.b.y);
         let zz = sortify(self.a.z, self.b.z, other.a.z, other.b.z);
-        // Test a point in each sub-volume to see if we should keep it.
         let mut result = Vec::new();
         for nx in 1..xx.len() {
             for ny in 1..yy.len() {
                 for nz in 1..zz.len() {
                     let p0 = Xyz { x:xx[nx-1], y:yy[ny-1], z:zz[nz-1] };
-                    if self.contains(&p0) && !other.contains(&p0) {
-                        let p1 = Xyz { x:xx[nx], y:yy[ny], z:zz[nz] };
-                        result.push(Cube {a:p0, b:p1} )
-                    }
+                    let p1 = Xyz { x:xx[nx], y:yy[ny], z:zz[nz] };
+                    result.push( Cube {a:p0, b:p1} );
                 }
             }
         }
+        return result
+    }
+
+    // Subtract a cuboid from the current volume to several smaller volumes.
+    fn sub(&self, other:&Cube) -> Cubes {
+        // Quickly check for the no-overlap case.
+        if self.disjoint(other) {return vec![self.clone()];}
+        // Otherwise, test each sub-volume.
+        self.subvol(other).into_iter()
+            .filter(|v| self.contains(&v.a) && !other.contains(&v.a))
+            .collect()
+    }
+}
+
+fn add(xx:&Cubes, y:&Cube) -> Cubes {
+    if ADD_UNIQUE {
+        // Force uniqueness during ADD operation.
+        // (i.e., Subtract non-unique sections from the new cube.)
+        let mut result = vec![y.clone()];
+        for x in xx {
+            result = sub(&result, x);
+        }
+        result.append(&mut xx.clone());
+        return result
+    } else {
+        // Just append the new cube without checking.
+        let mut result = xx.clone();
+        result.push(*y);
         return result
     }
 }
@@ -79,6 +105,22 @@ fn sub(xx:&Cubes, y:&Cube) -> Cubes {
         result.append(&mut x.sub(y));
     }
     return result
+}
+
+fn unique(xx:&Cubes) -> Cubes {
+    let mut result = Vec::new();
+    for (n,x) in xx.iter().enumerate() {
+        let mut incr = vec![*x];
+        for c in xx[n+1..].iter() {
+            incr = sub(&incr, c);
+        }
+        result.append(&mut incr);
+    }
+    return result
+}
+
+fn total_volume(xx:&Cubes) -> u64 {
+    xx.iter().map(|c| c.volume()).sum()
 }
 
 struct Command {
@@ -113,13 +155,8 @@ impl Command {
     // Apply this command to generate a new set of cubes.
     fn apply(&self, cubes:&Cubes) -> Cubes {
         if self.value {
-            // "On" command: Add unique part(s) of this cube.
-            // (i.e., Subtract all other cubes to find the new bits.)
-            let mut result = vec![self.range];
-            for cube in cubes {
-                result = sub(&result, cube);
-            }
-            result.append(&mut cubes.clone()); result
+            // "On" command: Add the new cube.
+            add(cubes, &self.range)
         } else {
             // "Off" command: Subtract this cube from all others.
             sub(cubes, &self.range)
@@ -134,7 +171,8 @@ fn run(cmds: &Vec<Command>) -> Cubes {
         cubes = cmd.apply(&cubes);
         if VERBOSE {eprintln!("Step {}: {} / {}", n, cubes.len(), part2(&cubes));}
     }
-    return cubes
+    // Is the aggregate already a unique set?
+    if ADD_UNIQUE {cubes} else {unique(&cubes)}
 }
 
 fn read_commands(filename: &str) -> Vec<Command>
@@ -152,8 +190,8 @@ fn part1(x: &Cubes) -> u64 {
 }
 
 // Find total volume of all cubes.
-fn part2(x: &Cubes) -> u64 {
-    x.iter().map(|c| c.volume()).sum()
+fn part2(cubes: &Cubes) -> u64 {
+    total_volume(cubes)
 }
 
 pub fn solve() {
