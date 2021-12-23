@@ -58,10 +58,10 @@ fn dijkstra(grid: &CaveGrid) -> usize {
         // Otherwise, process each of the immediate neighbors.
         for rc in [next.rc.nn(), next.rc.ee(), next.rc.ss(), next.rc.ww()] {
             if let Some(cost) = grid.get(&rc) {
-                let old = *best.get(&rc).unwrap_or(&usize::MAX);
+                let old = best.entry(rc).or_insert(usize::MAX);
                 let new = next.dd + cost;
-                if new < old {
-                    best.insert(rc, new);
+                if new < *old {
+                    *old = new;
                     queue.push(RowColScore::new(&rc, new));
                 }
             }
