@@ -26,9 +26,16 @@ fn str2reg(x:Option<&str>) -> Option<usize> {
     }
 }
 
+fn bool2int(x:bool) -> i64 {
+    if x {1} else {0}
+}
+
 // Set of all ALU commands
 enum Command {
     Input(usize),               // Pull next input
+    InpNeq(usize, usize),       // Pull next input and compare
+    CpyNum(usize, i64),         // Copy literal
+    CpyReg(usize, usize),       // Copy register
     AddNum(usize, i64),         // Add literal
     AddReg(usize, usize),       // Add register
     MulNum(usize, i64),         // Multiply literal
@@ -39,6 +46,8 @@ enum Command {
     ModReg(usize, usize),       // Modulo register
     EqlNum(usize, i64),         // Equality-test literal
     EqlReg(usize, usize),       // Equality-test register
+    NeqNum(usize, i64),         // Not-equal literal
+    NeqReg(usize, usize),       // Not-equal register
 }
 
 impl Command {
@@ -54,6 +63,9 @@ impl Command {
         // Pattern-match each possible command.
         match (opcode, inval, inreg) {
             ("inp",_,_)       => Some(Command::Input(outreg)),
+            ("ine",_,Some(x)) => Some(Command::InpNeq(outreg, x)),
+            ("cpy",Some(x),_) => Some(Command::CpyNum(outreg, x)),
+            ("cpy",_,Some(x)) => Some(Command::CpyReg(outreg, x)),
             ("add",Some(x),_) => Some(Command::AddNum(outreg, x)),
             ("add",_,Some(x)) => Some(Command::AddReg(outreg, x)),
             ("mul",Some(x),_) => Some(Command::MulNum(outreg, x)),
@@ -64,6 +76,8 @@ impl Command {
             ("mod",_,Some(x)) => Some(Command::ModReg(outreg, x)),
             ("eql",Some(x),_) => Some(Command::EqlNum(outreg, x)),
             ("eql",_,Some(x)) => Some(Command::EqlReg(outreg, x)),
+            ("neq",Some(x),_) => Some(Command::NeqNum(outreg, x)),
+            ("neq",_,Some(x)) => Some(Command::NeqReg(outreg, x)),
             _                 => None,
         }
     }
@@ -72,6 +86,9 @@ impl Command {
         let mut result = reg.clone();
         match self {
             Command::Input(a)     => result[*a] = digit,
+            Command::InpNeq(a, b) => {result[*a] = digit; result[*b] = bool2int(reg[*b] != digit)},
+            Command::CpyNum(a, b) => result[*a] = *b,
+            Command::CpyReg(a, b) => result[*a] = reg[*b],
             Command::AddNum(a, b) => result[*a] = reg[*a] + *b,
             Command::AddReg(a, b) => result[*a] = reg[*a] + reg[*b],
             Command::MulNum(a, b) => result[*a] = reg[*a] * *b,
@@ -80,8 +97,10 @@ impl Command {
             Command::DivReg(a, b) => result[*a] = reg[*a] / reg[*b],
             Command::ModNum(a, b) => result[*a] = reg[*a] % *b,
             Command::ModReg(a, b) => result[*a] = reg[*a] % reg[*b],
-            Command::EqlNum(a, b) => result[*a] = if reg[*a] == *b {1} else {0},
-            Command::EqlReg(a, b) => result[*a] = if reg[*a] == reg[*b] {1} else {0},
+            Command::EqlNum(a, b) => result[*a] = bool2int(reg[*a] == *b),
+            Command::EqlReg(a, b) => result[*a] = bool2int(reg[*a] == reg[*b]),
+            Command::NeqNum(a, b) => result[*a] = bool2int(reg[*a] != *b),
+            Command::NeqReg(a, b) => result[*a] = bool2int(reg[*a] != reg[*b]),
         };
         result
     }
@@ -107,7 +126,7 @@ impl Program {
             state = state.exec(cmd);
             if VERBOSE {
                 println!("  Cmd {}/{}: {} states",
-                    n, self.cmds.len(), state.states.len());
+                    n+1, self.cmds.len(), state.states.len());
             }
         }
         state
@@ -136,6 +155,13 @@ impl RegState {
             if let Command::Input(_) = cmd {
                 // Input creates a new branch for each input.
                 // The output states are guaranteed unique, so direct insert OK.
+                for digit in 1..10i64 {
+                    let regs = cmd.exec(prev, digit);
+                    let next = (10*input.0 + digit, 10*input.1 + digit);
+                    states.insert(regs, next);
+                }
+            } else if let Command::InpNeq(_,_) = cmd {
+                // Same for the combined input-and-inequality command.
                 for digit in 1..10i64 {
                     let regs = cmd.exec(prev, digit);
                     let next = (10*input.0 + digit, 10*input.1 + digit);
@@ -183,7 +209,9 @@ pub fn solve() {
     assert_eq!(monad(&test), (2,8));
 
     // Run the main program and apply Z=0 constraint.
-    let data = Program::new("input/input24.txt").run();
+    // (Hand-edited version moves or consolidates instructions to help
+    //  minimize exponential growth in the number of tracked states.)
+    let data = Program::new("input/input24_trim.txt").run();
     let soln = monad(&data);
     println!("Part1: {}", soln.1);  // Maximum
     println!("Part2: {}", soln.0);  // Minimum
