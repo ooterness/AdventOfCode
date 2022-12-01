@@ -4,7 +4,9 @@ This is repository holds my solutions to the [Advent of Code](https://adventofco
 
 # 2019
 
-I solved the 2019 puzzles using C++.
+This is the first year I participated in real-time.  Everything before this year was done after-the-fact.
+
+I solved the 2019 puzzles using C++.  This was challenging to debug, especially IntCode, but I made it work.
 
 Each .cpp file is a standalone program containing that day's solution.
 
