@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 # Copyright 2022 by Alex Utter
 
-def read_input(filename):
-    with open(filename, 'r') as file:
-        lines = file.readlines()
-    return [(line[0], line[2]) for line in lines]
+from aocd import get_data
+
+def read_input(input):
+    return [(line[0], line[2]) for line in input.splitlines()]
 
 def outcome1(them, us):
     # Them: A/B/C = Rock/Paper/Scissor
@@ -40,9 +40,16 @@ def part1(guide):
 def part2(guide):
     return sum([outcome2(us,them) for (us,them) in guide])
 
+TEST= \
+'''
+A Y
+B X
+C Z
+'''
+
 if __name__ == '__main__':
-    test = read_input('../input/test02.txt')
-    input = read_input('../input/input02.txt')
+    test = read_input(TEST.strip())
+    input = read_input(get_data(day=2, year=2022))
     assert(part1(test) == 15)
     assert(part2(test) == 12)
     print(f'Part 1: {part1(input)}')

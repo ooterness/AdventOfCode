@@ -2,11 +2,11 @@
 # Copyright 2022 by Alex Utter
 
 import re
+from aocd import get_data
 
-def read_input(filename):
+def read_input(input):
     # Put lines in chronological order.
-    with open(filename, 'r') as file:
-        lines = sorted(file.readlines())
+    lines = sorted(input.splitlines())
     # Find all numbers on each line.
     read_line = lambda line: [int(x) for x in re.findall('[0-9]+', line)]
     events = [read_line(line) for line in lines]
@@ -52,9 +52,30 @@ def part2(events):
     (guard,time) = max(counts, key=counts.get)
     return guard * time
 
+TEST = \
+'''
+[1518-11-01 00:00] Guard #10 begins shift
+[1518-11-01 00:05] falls asleep
+[1518-11-01 00:25] wakes up
+[1518-11-01 00:30] falls asleep
+[1518-11-01 00:55] wakes up
+[1518-11-01 23:58] Guard #99 begins shift
+[1518-11-02 00:40] falls asleep
+[1518-11-02 00:50] wakes up
+[1518-11-03 00:05] Guard #10 begins shift
+[1518-11-03 00:24] falls asleep
+[1518-11-03 00:29] wakes up
+[1518-11-04 00:02] Guard #99 begins shift
+[1518-11-04 00:36] falls asleep
+[1518-11-04 00:46] wakes up
+[1518-11-05 00:03] Guard #99 begins shift
+[1518-11-05 00:45] falls asleep
+[1518-11-05 00:55] wakes up
+'''
+
 if __name__ == '__main__':
-    test = read_input('../input/test04.txt')
-    input = read_input('../input/input04.txt')
+    test = read_input(TEST.strip())
+    input = read_input(get_data(day=4, year=2018))
     assert (part1(test) == 240)
     assert (part2(test) == 4455)
     print(f'Part 1: {part1(input)}')

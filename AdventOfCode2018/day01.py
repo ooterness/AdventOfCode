@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 # Copyright 2022 by Alex Utter
 
-def read_input(filename):
-    with open(filename, 'r') as file:
-        lines = file.readlines()
-    return [int(line) for line in lines]
+from aocd import get_data
+
+def read_input(input):
+    return [int(line) for line in input.splitlines()]
 
 def repeat_freq(delta):
     freq = 0
@@ -16,7 +16,7 @@ def repeat_freq(delta):
             seen.add(freq)
 
 if __name__ == '__main__':
-    input = read_input('../input/input01.txt')
+    input = read_input(get_data(day=1, year=2018))
     print(f'Part 1: {sum(input)}')
     assert (repeat_freq([+1, -1]) == 0)
     assert (repeat_freq([+3, +3, +4, -2, -4]) == 10)

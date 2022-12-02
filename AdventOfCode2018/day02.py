@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 # Copyright 2022 by Alex Utter
 
-def read_input(filename):
-    with open(filename, 'r') as file:
-        lines = file.readlines()
-    return [line.strip() for line in lines]
+from aocd import get_data
+
+def read_input(input):
+    return [line.strip() for line in input.splitlines()]
 
 def count_letters(line):
     '''Count number of times each letter appears.'''
@@ -45,10 +45,32 @@ def part2(lines):
                 return common(lines[a], lines[b])
     return ''   # No similar boxes found
 
+TEST1 = \
+'''
+abcdef
+bababc
+abbcde
+abcccd
+aabcdd
+abcdee
+ababab
+'''
+
+TEST2 = \
+'''
+abcde
+fghij
+klmno
+pqrst
+fguij
+axcye
+wvxyz
+'''
+
 if __name__ == '__main__':
-    test1 = read_input('../input/test02a.txt')
-    test2 = read_input('../input/test02b.txt')
-    input = read_input('../input/input02.txt')
+    test1 = read_input(TEST1.strip())
+    test2 = read_input(TEST2.strip())
+    input = read_input(get_data(day=2, year=2018))
     assert (part1(test1) == 12)
     assert (part2(test2) == 'fgij')
     print(f'Part 1: {part1(input)}')

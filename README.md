@@ -32,4 +32,6 @@ Environment: Windows 10 / Cargo 1.56.0
 
 Python this year.
 
+Some solutions use the [AOCD package](https://pypi.org/project/advent-of-code-data/) to fetch input data automatically.
+
 Environment: Windows 10 / Anaconda 4.8.2
