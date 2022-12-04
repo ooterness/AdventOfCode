@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 # Copyright 2022 by Alex Utter
 
-import re
 from aocd import get_data
 from collections import defaultdict
 
