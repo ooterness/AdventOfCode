@@ -3,33 +3,37 @@
 
 import re
 from aocd import get_data
+from llist import dllist
 
 def read_input(line):
     return [int(x) for x in re.findall('[0-9]+', line)]
 
-def insert(circle, index, value):
-    return circle[:index+1] + [value] + circle[index+1:]
-
-def remove(circle, index):
-    return circle[:index] + circle[index+1:]
-
-def offset(circle, placed, incr):
-    return (placed + incr) % len(circle)
+def shift(circle, node, offset):
+    ptr = node
+    while offset > 0:
+        ptr = ptr.next
+        offset -= 1
+        if ptr is None: ptr = circle.first
+    while offset < 0:
+        ptr = ptr.prev
+        offset += 1
+        if ptr is None: ptr = circle.last
+    return ptr
 
 def highscore(num_players, num_marbles):
-    circle = [0]                # Initial game state
-    placed = 0                  # Index of current marble
+    circle = dllist([0])        # Initial game state
+    placed = circle.first       # Pointer to current marble
     scores = [0] * num_players  # Score for each player
-    for n in range(1, num_marbles):
+    for n in range(1, num_marbles+1):
         player = (n-1) % num_players
         if n % 23 == 0:         # Complex placement
-            placed = offset(circle, placed, -7)
-            scores[player] += n + circle[placed]
-            circle = remove(circle, placed)
+            target = shift(circle, placed, -7)
+            placed = shift(circle, target, +1)
+            scores[player] += n + target.value
+            circle.remove(target)
         else:                   # Regular inseration
-            placed = offset(circle, placed, 1)
-            circle = insert(circle, placed, n)
-            placed += 1
+            target = shift(circle, placed, +1)
+            placed = circle.insertafter(n, target)
     return max(scores)
 
 if __name__ == '__main__':
@@ -43,9 +47,8 @@ if __name__ == '__main__':
     assert (highscore(*test0) == 32)
     assert (highscore(*test1) == 8317)
     assert (highscore(*test2) == 146373)
-    #assert (highscore(*test3) == 2764) # Typo in problem statement?
+    assert (highscore(*test3) == 2764)
     assert (highscore(*test4) == 54718)
     assert (highscore(*test5) == 37305)
     print(f'Part 1: {highscore(*input)}')
-    # TODO: This is way too slow.  Need a better data structure?
-    #print(f'Part 2: {highscore(input[0], 100*input[1])}')
+    print(f'Part 2: {highscore(input[0], 100*input[1])}')
