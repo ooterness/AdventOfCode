@@ -19,9 +19,8 @@ def read_input(input):
         for (col, lbl) in stacks:
             if line[col] != ' ': init[lbl].append(line[col])
     # Everything below the split is the move list.
-    moves = []
-    for line in lines[split+1:]:
-        moves.append([int(x) for x in re.findall('[0-9]+', line)])
+    read_ints = lambda line: [int(x) for x in re.findall('[0-9]+', line)]
+    moves = [read_ints(line) for line in lines[split+1:]]
     return (init, moves)
 
 def top_str(stacks):
