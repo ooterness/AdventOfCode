@@ -52,7 +52,6 @@ def part2(cmds):
                 rope[r] = move(rope[r-1], rope[r])
             visited.add(rope[-1])
     return len(visited)
-        
 
 TEST1 = \
 '''
