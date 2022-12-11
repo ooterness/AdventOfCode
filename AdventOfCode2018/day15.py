@@ -176,6 +176,23 @@ def part1(init, verbosity=0):
     if verbosity > 0: state.debug()
     return state.outcome()
 
+def part2(init, verbosity=0):
+    attack_power = 4
+    while True:
+        # Set the new attack power.
+        state = deepcopy(init)
+        for elf in state.elf: elf.ap = attack_power
+        # Run simulation until one elf dies or all goblins die.
+        while len(state.elf) == len(init.elf) and len(state.gob) > 0:
+            state.iterate()
+            if verbosity > 1: state.debug()
+        if verbosity > 0:
+            print(f'Trial AP = {attack_power}')
+            state.debug()
+        # Stop if the elves won. Otherwise try again.
+        if len(state.gob) == 0: return state.outcome()
+        attack_power += 1
+
 TEST1 = \
 '''
 #######
@@ -263,5 +280,12 @@ if __name__ == '__main__':
     assert(part1(test4, verbosity) == 27755)
     assert(part1(test5, verbosity) == 28944)
     assert(part1(test6, verbosity) == 18740)
+    # Unit tests for part 2:
+    assert(part2(test1, verbosity) == 4988)
+    assert(part2(test3, verbosity) == 31284)
+    assert(part2(test4, verbosity) == 3478)
+    assert(part2(test5, verbosity) == 6474)
+    assert(part2(test6, verbosity) == 1140)
     # Problem solution:
     print(f'Part 1: {part1(input, verbosity)}')
+    print(f'Part 2: {part2(input, verbosity)}')
