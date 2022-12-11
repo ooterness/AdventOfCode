@@ -3,7 +3,9 @@
 
 from aocd import get_data
 from copy import deepcopy
-from collections import deque
+from heapq import heapify, heappop, heappush
+from time import sleep
+import sys
 
 '''A row and column coordinate.'''
 class Position:
@@ -13,6 +15,9 @@ class Position:
 
     def __eq__(self, pos):
         return (self.r == pos.r) and (self.c == pos.c)
+
+    def __lt__(self, pos):
+        return (self.r, self.c) < (pos.r, pos.c)
 
     def __hash__(self):
         return hash((self.r, self.c))
@@ -48,29 +53,37 @@ class Unit(Position):
         in_range = lambda pos: \
             any([r <= self.range for r in pos.dists(enemies)])
         if in_range(self): return False
-        # Breadth-first search for nearest target.
-        self_adj = self.adj(occupied)
-        search = deque([(m,m) for m in self_adj])
-        visited = set(self_adj)
+        # Modified breadth-first search for nearest target.
+        # (Heap sorting order matches the tiebreaker constraints.)
+        search = [(1,m,m) for m in self.adj(occupied)]
+        heapify(search)             # Swap into heapq order
+        visited = set()
         while len(search) > 0:
-            (pos,first) = search.popleft()
+            (n,pos,first) = heappop(search)
+            if pos in visited: continue
+            visited.add(pos)
             if in_range(pos):       # Nearest target found?
                 self.r = first.r    # Step towards target
                 self.c = first.c
                 return True
             for next in pos.adj(occupied):
-                if not next in visited:
-                    search.append((next,first))
-                    visited.add(next)
+                if next in visited: continue
+                heappush(search, (n+1,next,first))
         return False                # No reachable enemies
 
     '''Attack weakest enemy, if one is in range.'''
     def attack(self, enemies):
+        # Find the weakest target in range...
         target = None
-        for enemy in enemies:       # Attack first enemy in range
+        for enemy in enemies:
             if self.dist(enemy) > self.range: continue
             if (target is None) or (enemy.hp < target.hp): target = enemy
-        if target: target.hp -= self.ap
+        # Make the attack if possible.
+        if target:
+            target.hp = max(0, target.hp - self.ap)
+            return target.hp <= 0   # Target killed?
+        else:
+            return False            # No attack possible
 
 '''Sort a list of live units in reading order.'''
 def live_units(units):
@@ -93,6 +106,8 @@ class Scenario:
             for (c, ch) in enumerate(line):
                 if ch == 'E': self.elf.append(Unit(ch, r, c))
                 if ch == 'G': self.gob.append(Unit(ch, r, c))
+        # Run pathfinding in the next timestep?
+        self.run_move = True
 
     '''Print the current combat state.'''
     def debug(self):
@@ -119,8 +134,8 @@ class Scenario:
     '''Create a grid of occupied squares from current state.'''
     def occupied(self):
         state = deepcopy(self.walls)
-        for unit in self.elf: state[unit.r][unit.c] = unit.hp > 0
-        for unit in self.gob: state[unit.r][unit.c] = unit.hp > 0
+        for unit in live_units(self.elf + self.gob):
+            state[unit.r][unit.c] = True
         return state
 
     '''Combat outcome score.'''
@@ -133,24 +148,32 @@ class Scenario:
     def iterate(self):
         # Update unit states in reading order.
         full_round = True
+        any_moved = False
+        any_killed = False
         for unit in live_units(self.elf + self.gob):
             if unit.hp <= 0: continue
             enemies = self.enemies_of(unit)
             if len(enemies) == 0:
                 full_round = False; break
-            unit.move(self.occupied(), enemies)
-            unit.attack(enemies)
+            if self.run_move or any_killed:
+                if unit.move(self.occupied(), enemies):
+                    any_moved = True
+            if unit.attack(enemies):
+                any_killed = True
         # Prune dead units and update time counter.
-        self.elf = live_units(self.elf)
-        self.gob = live_units(self.gob)
+        if any_killed:
+            self.elf = live_units(self.elf)
+            self.gob = live_units(self.gob)
+        self.run_move = any_moved or any_killed
         if full_round: self.round += 1
 
-def part1(init, verbose=0):
+def part1(init, verbosity=0):
     state = deepcopy(init)
     while not state.finished():
-        if verbose > 1: state.debug()
+        if verbosity > 1: state.debug()
+        if verbosity > 2: sleep(0.25)
         state.iterate()
-    if verbose > 0: state.debug()
+    if verbosity > 0: state.debug()
     return state.outcome()
 
 TEST1 = \
@@ -222,6 +245,9 @@ TEST6 = \
 '''
 
 if __name__ == '__main__':
+    # Set verbosity for each scenario.
+    verbosity = 0
+    if len(sys.argv) > 1: verbosity = int(sys.argv[1])
     # Read all initial states.
     test1 = Scenario(TEST1[1:])
     test2 = Scenario(TEST2[1:])
@@ -231,11 +257,11 @@ if __name__ == '__main__':
     test6 = Scenario(TEST6[1:])
     input = Scenario(get_data(day=15, year=2018))
     # Unit tests for part 1:
-    assert(part1(test1) == 27730)
-    assert(part1(test2) == 36334)
-    assert(part1(test3) == 39514)
-    assert(part1(test4) == 27755)
-    assert(part1(test5) == 28944)
-    assert(part1(test6) == 18740)
+    assert(part1(test1, verbosity) == 27730)
+    assert(part1(test2, verbosity) == 36334)
+    assert(part1(test3, verbosity) == 39514)
+    assert(part1(test4, verbosity) == 27755)
+    assert(part1(test5, verbosity) == 28944)
+    assert(part1(test6, verbosity) == 18740)
     # Problem solution:
-    print(f'Part 1: {part1(input)}')
+    print(f'Part 1: {part1(input, verbosity)}')
