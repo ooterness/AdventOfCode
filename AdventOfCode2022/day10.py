@@ -37,6 +37,9 @@ def part2(program):
     xval = simulate(program)
     return '\n'.join([pline(xval, r) for r in range(6)])
 
+def contrast(text):
+    return text.replace('#', '█').replace('.', ' ')
+
 CRT_TEST = \
 '''
 ##..##..##..##..##..##..##..##..##..##..
@@ -53,4 +56,4 @@ if __name__ == '__main__':
     assert(part1(test) == 13140)
     assert(part2(test) == CRT_TEST.strip())
     print(f'Part 1: {part1(input)}')
-    print(f'Part 2:\n{part2(input)}')
+    print(f'Part 2:\n{contrast(part2(input))}')

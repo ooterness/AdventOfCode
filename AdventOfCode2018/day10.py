@@ -37,6 +37,9 @@ def part2(input):
         if (size < score): (score, btime) = (size, t)
     return btime
 
+def contrast(text):
+    return text.replace('#', '█').replace('.', ' ')
+
 TEST = \
 '''
 position=< 9,  1> velocity=< 0,  2>
@@ -89,5 +92,5 @@ if __name__ == '__main__':
     input = read_input(get_data(day=10, year=2018))
     assert (part1(test) == REF1.strip())
     assert (part2(test) == 3)
-    print(f'Part 1:\n{part1(input)}')
+    print(f'Part 1:\n{contrast(part1(input))}')
     print(f'Part 2: Time = {part2(input)}')
