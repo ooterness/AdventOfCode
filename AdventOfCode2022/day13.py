@@ -3,11 +3,12 @@
 
 from aocd import get_data
 from functools import cmp_to_key
+from json import loads
 
 def read_input(input):
     lines = input.splitlines()
     count = (len(lines) + 1) // 3
-    return [(eval(lines[3*n+0]), eval(lines[3*n+1]))
+    return [(loads(lines[3*n+0]), loads(lines[3*n+1]))
         for n in range(count)]
 
 def compare(left, right):
