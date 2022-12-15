@@ -2,41 +2,37 @@
 # Copyright 2022 by Alex Utter
 
 from aocd import get_data
-from copy import deepcopy
 import re
 
 def read_input(input):
     numbers = lambda line: [int(x) for x in re.findall('[0-9\-]+', line)]
-    return [numbers(line) for line in input.splitlines()]
+    return sorted([numbers(line) for line in input.splitlines()])
 
 def count_beacons(sensors, row):
     beacons = [bx for (sx,sy,bx,by) in sensors if by == row]
     return len(set(beacons))            # Count unique beacons
 
 def scan_row(sensors, row, max_xy):
-    scans = []
-    for (sx, sy, bx, by) in sensors:
-        rr = abs(sx-bx) + abs(sy-by) - abs(sy - row)
-        if rr < 0: continue             # Any tiles this row?
-        x0 = sx - rr; x1 = sx + rr      # Define search radius
-        if max_xy:                      # Limit search range?
-            x0 = max(x0, 0)
-            x1 = min(x1, max_xy)
-        scans.append((x0, x1))          # Add to list
-    if len(scans) == 0: return []
-    scans.sort()                        # Sort in-place
-    merged = [scans[0]]                 # Merged list of scans
-    for (x0,x1) in scans[1:]:
-        (p0,p1) = merged[-1]
-        if x0 <= p1:                    # Ranges overlap?
-            p2 = max(x1, p1)
-            merged[-1] = (p0,p2)        # Extend segment
-        else:
-            merged.append((x0,x1))      # New segment
+    # For each beacon, calculate affected tiles.
+    rr = [abs(sx-bx) + abs(sy-by) - abs(sy - row) for (sx,sy,bx,by) in sensors]
+    scans = [(sx-rr, sx+rr) for ((sx,sy,bx,by),rr) in zip(sensors, rr) if rr >= 0]
+    # Limit scan ranges?
+    if max_xy > 0: scans = [(max(x0,0), min(x1,max_xy)) for (x0,x1) in scans]
+    # Merge individual scans into contiguous segments.
+    # Sorting ensures we only need to compare one at a time.
+    merged = []
+    for (x0,x1) in sorted(scans):       # Sort left to right
+        if len(merged) == 0:            # First scan segment?
+            merged.append((x0,x1)); continue
+        (p0,p1) = merged[-1]            # Previous segment
+        if x0 <= p1:                    # Extend previous
+            merged[-1] = (p0,max(x1, p1))
+        else:                           # Create new segment
+            merged.append((x0,x1))
     return merged
     
 def count_row(sensors, row):
-    return sum([1+x1-x0 for (x0,x1) in scan_row(sensors, row, None)])
+    return sum([1+x1-x0 for (x0,x1) in scan_row(sensors, row, 0)])
 
 def part1(sensors, row):
     return count_row(sensors, row) - count_beacons(sensors, row)
