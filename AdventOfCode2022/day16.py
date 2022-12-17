@@ -17,23 +17,24 @@ def read_line(line, labels):
 
 def read_input(input):
     # Two passes: Labels only, then room parameters.
-    labels = [line[6:8] for line in input.splitlines()]
-    return [read_line(line, labels) for line in input.splitlines()]
+    labels = sorted([line[6:8] for line in input.splitlines()])
+    rooms = [read_line(line, labels) for line in input.splitlines()] 
+    return sorted(rooms)
 
 def dijkstra(rooms, verbose=False):
     dist = {}               # For each time/room/vmask, maximum pressure released
     next = [(-30,0,0,0)]    # Min-heap for search queue. (time, cost, node, valves)
     while len(next) > 0:
         (time,cost,node,valve) = heappop(next)  # Next state to consider?
-        if time >= 0: continue                  # Out of time? Already explored?
-        if cost > dist.get((time,node), 0): continue
+        if time >= 0: break                     # Out of time? Better solution?
+        if cost > dist.get((time,node,valve), 0): continue
         if verbose: print((-time,-cost,node,valve))
         time += 1
         (lbl,rate,outlets) = rooms[node]        # Lookup current room
         vmask = 2**node
         if (rate > 0) and not (valve & vmask):  # Try opening valve?
             new_state = (time, node, valve|vmask)
-            new_cost = cost + (time) * rate
+            new_cost = cost + time * rate
             if new_cost < dist.get(new_state, 0):
                 dist[new_state] = new_cost
                 heappush(next, (time,new_cost,node,valve|vmask))
