@@ -3,12 +3,14 @@
 
 from aocd import get_data
 
-BLOCKS = [                  # List of (R,C) relative to origin
-    [(0,0), (0,1), (0,2), (0,3)],
-    [(0,1), (1,0), (1,1), (1,2), (2,1)],
-    [(0,0), (0,1), (0,2), (1,2), (2,2)],
-    [(0,0), (1,0), (2,0), (3,0)],
-    [(0,0), (0,1), (1,0), (1,1)],
+# Each row is defined as a bit-mask, MSB = left.
+# Blocks are defined as a list of rows, starting from the bottom.
+BLOCKS = [
+    [0b1111000],
+    [0b0100000, 0b1110000, 0b0100000],
+    [0b1110000, 0b0010000, 0b0010000],
+    [0b1000000, 0b1000000, 0b1000000, 0b1000000],
+    [0b1100000, 0b1100000],
 ]
 
 class GameBlock:
@@ -19,32 +21,31 @@ class GameBlock:
 
     # Add self to the list of frozen blocks.
     def add(self, blocks):
-        maxr = 0
-        for (r,c) in self.p:
-            maxr = max(maxr, self.r+r)
-            blocks.add((self.r+r, self.c+c))
-        return maxr + 1         # Height = Row-index + 1
+        for (r,mask) in enumerate(self.p):
+            r2 = self.r + r
+            blocks[r2] = (mask >> self.c) | blocks.get(r2, 0)
+        return self.r + len(self.p)
 
     # Fall one row if possible. Returns True on collision.
     def fall(self, blocks):
-        for (r,c) in self.p:
+        for (r,mask) in enumerate(self.p):
             r2 = self.r + r - 1
-            c2 = self.c + c
             if r2 < 0:
                 return True     # Collision (floor)
-            if (r2, c2) in blocks:
+            if blocks.get(r2,0) & (mask >> self.c):
                 return True     # Collision (blocks)
         self.r -= 1             # Fall one row
         return False            # No collision
 
     # Slide left or right if possible. Returns True on collision.
     def slide(self, blocks, delta):
-        for (r,c) in self.p:
+        for (r,mask) in enumerate(self.p):
             r2 = self.r + r
-            c2 = self.c + c + delta
-            if c2 < 0 or c2 > 6:
-                return True     # Collision (sides)
-            if (r2, c2) in blocks:
+            if delta < 0 and self.c == 0:
+                return True     # Collision (left wall)
+            if delta > 0 and (1 & (mask >> self.c)):
+                return True     # Collision (right wall)
+            if (mask >> self.c+delta) & blocks.get(r2, 0):
                 return True     # Collision (blocks)
         self.c += delta         # Slide one space
         return False            # No collision
@@ -55,7 +56,7 @@ class GameState:
         self.bidx = 0       # Block index
         self.jidx = 0       # Jet index
         self.maxh = 0       # Max height
-        self.blocks = set() # Dropped tiles
+        self.blocks = {}    # Dropped tiles (Bit mask by row)
 
     def debug(self):
         print(f'After block #{self.bidx}, height {self.maxh}')
