@@ -85,13 +85,40 @@ def part1(jets, verbose=False):
     return game.maxh
 
 def part2(jets):
-    None
+    game = GameState(jets)
+    jmod = [0]
+    maxh = [0]
+    # Keep a history of game state, scanning for repetition.
+    MIN_INIT    = 1000      # Ignore initial transient
+    MIN_CHECK   = 1000      # Minimum consecutive matches
+    interval    = 0         # Calculated period (see below)
+    while True:
+        # Drop one of each block, then record state.
+        for b in BLOCKS: game.drop_block()
+        jmod.append(game.jidx % len(jets))
+        maxh.append(game.maxh)
+        # Do we have enough history to run a check?
+        itemp = len(jmod) - (MIN_INIT + MIN_CHECK)
+        if itemp < MIN_CHECK: continue
+        # Matching history over MIN_CHECK consecutive items?
+        delta_h = maxh[MIN_INIT+itemp] - maxh[MIN_INIT]
+        ok = [jmod[n+itemp] == jmod[n]  and
+              maxh[n+itemp] == maxh[n] + delta_h
+              for n in range(MIN_INIT, MIN_INIT+MIN_CHECK)]
+        if all(ok): interval = itemp * len(BLOCKS); break
+    # Distance to FINAL_IDX? (Complete loops + blocks)
+    rem_total  = 1000000000000 - MIN_INIT * len(BLOCKS)
+    rem_loops  = rem_total // interval
+    rem_offset = (rem_total % interval) // len(BLOCKS)
+    rem_blocks = (rem_total % interval) % len(BLOCKS)
+    assert (rem_blocks == 0)    # TODO: Handle this case?
+    return maxh[MIN_INIT + rem_offset] + delta_h * rem_loops
 
 TEST = '>>><<><>><<<>><>>><<<>>><<<><<<>><>><<>>'
 
 if __name__ == '__main__':
     input = get_data(day=17, year=2022)
     assert(part1(TEST) == 3068)
-    #assert(part2(TEST) == 29)
+    assert(part2(TEST) == 1514285714288)
     print(f'Part 1: {part1(input)}')
-    #print(f'Part 2: {part2(input)}')
+    print(f'Part 2: {part2(input)}')
