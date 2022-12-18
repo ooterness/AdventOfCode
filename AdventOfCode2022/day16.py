@@ -23,16 +23,26 @@ def read_input(input):
     return sorted(rooms)
 
 def dijkstra(rooms, start, verbose=False):
-    # Agents take turns, N turns = one minute.
+    # Agents take turns. Divide each minute into N ticks.
     agents = len(start)                     # Number of agents = Length of initial state
     max_time = 30 if agents == 1 else 52    # 30 minutes = 30 ticks, or 26 minutes = 52 ticks
+    # Lambda functions for cost-lookup and queue state-vectors.
+    # (Indirect makes it easier to change search order.)
+    make_cost = lambda time,vent,nodes,valve: vent
+    make_dist = lambda time,vent,nodes,valve: (time,nodes,valve)
+    make_next = lambda time,vent,nodes,valve: (time,vent,nodes,valve)
+    get_state = lambda time,vent,nodes,valve: (time,vent,nodes,valve)
+    # Prioritized search using Dijstra's algorithm:
     dist = {}                               # For each time/rooms/vmask, maximum pressure released
-    next = [(-max_time,0,start,0)]          # Min-heap for search queue. (time, cost, nodes, valves)
+    next = [make_next(-max_time,0,start,0)] # Min-heap for search queue. (time, cost, nodes, valves)
     while len(next) > 0:
-        (time,cost,nodes,valve) = heappop(next) # Next state to consider?
+        # Next state to consider?
+        (time,vent,nodes,valve) = get_state(*heappop(next))
+        cost = make_cost(time,vent,nodes,valve)
+        dref = make_dist(time,vent,nodes,valve)
         if time >= 0: break                     # Out of time? Better solution?
-        if cost > dist.get((time,nodes,valve), 0): continue
-        if verbose: print((-time,-cost,nodes,valve))
+        if cost > dist.get(dref, 0): continue
+        if verbose: print(dref)
         agent = time % agents                   # Who's moving this tick?
         time += 1
         trem = -time // agents                  # Minutes remaining (round down)
@@ -40,24 +50,32 @@ def dijkstra(rooms, start, verbose=False):
         (lbl,rate,outlets) = rooms[node]        # Lookup current agent/room
         vmask = 2**node
         if (rate > 0) and not (valve & vmask):  # Try opening valve?
-            new_state = (time, nodes, valve|vmask)
-            new_cost = cost - trem * rate
-            if new_cost < dist.get(new_state, 0):
-                dist[new_state] = new_cost
-                heappush(next, (time,new_cost,nodes,valve|vmask))
+            new_vent = vent - trem * rate
+            new_cost = make_cost(time, new_vent, nodes, valve|vmask)
+            new_dist = make_dist(time, new_vent, nodes, valve|vmask)
+            new_next = make_next(time, new_vent, nodes, valve|vmask)
+            if new_cost < dist.get(new_dist, 0):
+                dist[new_dist] = new_cost
+                heappush(next, new_next)
         for move in outlets:                    # Try each tunnel?
-            new_move = tuple([move if n==agent else nodes[n] for n in range(agents)])
-            new_state = (time, new_move, valve)
-            if cost < dist.get(new_state, 1):
-                dist[new_state] = cost
-                heappush(next, (time,cost,new_move,valve))
-    return dist
+            if agents == 2 and agent == 1:
+                new_move = (min(nodes[0], move), max(nodes[0], move))
+            elif agents == 2:
+                new_move = (move, nodes[1])
+            else:
+                new_move = (move,)
+            new_dist = make_dist(time, vent, new_move, valve)
+            new_next = make_next(time, vent, new_move, valve)
+            if cost < dist.get(new_dist, 1):
+                dist[new_dist] = cost
+                heappush(next, new_next)
+    return -min(dist.values())
 
 def part1(rooms):
-    return -min(dijkstra(rooms, (0,)).values())
+    return dijkstra(rooms, (0,))
 
 def part2(rooms):
-    return -min(dijkstra(rooms, (0,0)).values())
+    return dijkstra(rooms, (0,0))
 
 TEST = \
 '''
@@ -79,5 +97,5 @@ if __name__ == '__main__':
     assert(part1(test) == 1651)
     assert(part2(test) == 1707)
     print(f'Part 1: {part1(input)}')
-    # TODO: Improved algorithm? No result after a full hour.
-    #print(f'Part 2: {part2(input)}')
+    print(f'Part 2: {part2(input)}')
+    # 2215 = Too low
