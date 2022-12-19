@@ -2,122 +2,158 @@
 # Copyright 2022 by Alex Utter
 
 from aocd import get_data
+from copy import copy
 from heapq import heappop, heappush
 
 def read_line(line, labels):
     # Reads room parameters: Label, Valve/rate, Exits
     words = line.split(' ')
-    node = words[1]     # "AA"
+    name = words[1]     # "AA"
     rate = words[4]     # "rate=0";
     outs = words[9:]    # "DD," "II," "BB" (note commas)
+    idx  = labels.index(name)
     rate_i = int(rate[5:-1])
     outs_i = [labels.index(x[0:2]) for x in outs]
-    return (node, rate_i, outs_i)
+    return (idx, rate_i, outs_i)
 
 def read_input(input):
+    # Sort the input rows to ensure room 'AA' is at index zero.
+    lines = sorted(input.splitlines())
     # Two passes: Labels only, then room parameters.
-    # (Sorting both lists ensures room 'AA' is at index zero.)
-    labels = sorted([line[6:8] for line in input.splitlines()])
-    rooms = [read_line(line, labels) for line in input.splitlines()] 
-    return sorted(rooms)
+    labels = [line[6:8] for line in lines]
+    rooms = [read_line(line, labels) for line in lines]
+    # Simplify the network before returning.
+    return simplify(sorted(rooms))
+
+# Given a network of rooms, find min-distance to each relevant room.
+# (i.e., There's never a reason to stop in a room except to open a valve.)
+def simplify(rooms):
+    # Initialize the distance matrix.
+    dist = [[999 for x in rooms] for y in rooms]
+    for (idx,rate,outs) in rooms:
+        dist[idx][idx] = 0
+        for out in outs: dist[idx][out] = 1
+    # Floyd-Warshall for the win.
+    for (x,_,_) in rooms:
+        for (y,_,_) in rooms:
+            for (z,_,_) in rooms:
+                dist[y][z] = min(dist[y][z], dist[y][x] + dist[x][z])
+    # Compress to the "good" rooms where rate > 0.
+    good_rooms = [r for (r,rate,outs) in rooms if r == 0 or rate > 0]
+    good_rate = lambda r: rooms[r][1]
+    good_dist = lambda r: [dist[r][n] for n in good_rooms]
+    return [(n, good_rate(r), good_dist(r)) for (n,r) in enumerate(good_rooms)]
 
 class SearchState(object):
-    def __init__(self, nodes, rate, rsum, time, valve, vent):
-        # Note: Agents take turns -> N turns per minute.
-        self.nodes  = nodes # Location of each agent (tuple)
-        self.rate   = rate  # Current vent flow-rate
-        self.rsum   = rsum  # Maximum vent flow-rate
-        self.time   = time  # Current timestamp (turns)
-        self.tmax   = 30 if len(nodes) == 1 else 52
-        self.valve  = valve # Bit-mask of open valves
-        self.vent   = vent  # Expected total pressure relief
+    def __init__(self, agents, rsum, tmax):
+        self.agents = agents    # Number of active agents
+        self.node0  = 0         # Where is each agent located or headed?
+        self.node1  = 0
+        self.busy0  = 0         # Travel time remaining for each agent
+        self.busy1  = 0 if agents > 1 else tmax
+        self.rate   = 0         # Rate of currently open valves
+        self.rsum   = rsum      # Sum of all possible valves
+        self.time   = 0         # Current timestep
+        self.trem   = tmax      # Remaining time
+        self.valve  = 0         # Bit-mask of open valves
+        self.vent   = 0         # Accumulated pressure relief
 
-    def __hash__(self):     # Hash function for "visited"
-        return hash((self.nodes, self.time, self.valve, self.vent))
+    def __hash__(self):         # Hash function for "visited"
+        return hash(self.key())
 
-    def __lt__(self, other):
-        return self.hint() < other.hint()
+    def __lt__(self, other):    # Sorting function for min-heap
+        return self.cost() < other.cost()
+        
+    def cost(self):             # Total-cost function for Dijkstra
+        return self.time * self.rsum - self.vent
 
-    def agent(self):        # Whose turn is it to act?
-        return self.time % self.agents()
+    def key(self):              # Unique key function for memoization
+        return (self.node0, self.node1, self.busy0, self.busy1, self.time, self.valve)
 
-    def agents(self):       # Number of agents
-        return len(self.nodes)
+    def step(self, rooms):      # Simulate up to the next decision point.
+        # Move forward in time...
+        dt = min(self.busy0, self.busy1, self.trem)
+        self.busy0 -= dt
+        self.busy1 -= dt
+        self.time  += dt
+        self.trem  -= dt
+        self.vent  += dt * self.rate
+        # Lookup current room for each agent.
+        (idx0,rate0,_) = rooms[self.node0]
+        (idx1,rate1,_) = rooms[self.node1]
+        mask0 = 2**idx0
+        mask1 = 2**idx1
+        # Mark designated valves as open.
+        if self.time > 0 and (not self.valve & mask0) and (not self.busy0):
+            self.valve |= 2**idx0
+            self.rate  += rate0
+        if self.time > 0 and (not self.valve & mask1) and (not self.busy1):
+            self.valve |= 2**idx1
+            self.rate  += rate1
+        return self
 
-    def trem(self):         # Remaining time in minutes
-        return (self.tmax * self.time) // self.agents()
+    def next(self, rooms):      # Return a list of possible actions
+        result = []
+        # Lookup current room for each agent.
+        (_,_,dist0) = rooms[self.node0]
+        (_,_,dist1) = rooms[self.node1]
+        # Assign first agent if idle.
+        if (not self.busy0) and (not result):
+            for (n,dist) in enumerate(dist0):
+                (_,rate,_) = rooms[n]
+                if not rate: continue
+                if self.valve & 2**n: continue
+                if dist >= self.trem: continue
+                if self.busy1 and n == self.node1: continue
+                adj = copy(self)    # Travel to valve N and close it
+                adj.node0 = n
+                adj.busy0 = dist + 1
+                result.append(adj.step(rooms))
+            if not result:
+                adj = copy(self)    # Nothing to do but wait
+                adj.busy0 = self.trem
+                result.append(adj.step(rooms))
+        # Assign second agent if idle.
+        if (not self.busy1) and (not result):
+            for (n,dist) in enumerate(dist1):
+                (_,rate,_) = rooms[n]
+                if not rate: continue
+                if self.valve & 2**n: continue
+                if dist >= self.trem: continue
+                if self.busy0 and n == self.node0: continue
+                adj = copy(self)    # Travel to valve N and close it
+                adj.node1 = n
+                adj.busy1 = dist + 1
+                result.append(adj.step(rooms))
+            if not result:
+                adj = copy(self)    # Nothing to do but wait
+                adj.busy1 = self.trem
+                result.append(adj.step(rooms))
+        return result
 
-    def cost(self):         # Cost function for problem
-        return self.rsum*(self.time//self.agents()) - self.vent
-
-    def hint(self):         # Cost hint for A* search
-        return self.cost()  # - self.rate * self.trem()
-
-    def debug(self):
-        print(f'@{self.time}: Vent {self.vent}, Rooms {self.nodes}')
-
-    def key(self):          # Lookup key for best-cost dictionary
-        return (self.nodes, self.time, self.valve)
-
-    def next(self, rooms):  # Return a list of possible actions
-        adj = []
-        # Give credit for all open valves.
-        new_vent = self.vent
-        if self.agent() == 0: new_vent += self.rate
-        # Final turn doesn't matter -> just wait.
-        if self.time == self.tmax-1:
-            return [SearchState(self.nodes, self.rate, self.rsum, self.time+1, self.valve, new_vent)]
-        # Lookup actions for the current room:
-        node = self.nodes[self.agent()]
-        (_, rate, tunnels) = rooms[node]
-        # Try opening the valve?
-        vmask = 2**node
-        if (rate > 0) and not (self.valve & vmask):
-            adj.append(SearchState(self.nodes, self.rate + rate, self.rsum, self.time+1, self.valve|vmask, new_vent))
-        # Try moving down each tunnel...
-        for move in tunnels:
-            if self.agents() == 1:
-                new_nodes = (move,)
-            elif self.agent() == 1:
-                # Note: Sorting locations after each loop reduces search overlap.
-                new_nodes = (min(self.nodes[0], move), max(self.nodes[0], move))
-            else:
-                new_nodes = (move, self.nodes[1])
-            adj.append(SearchState(new_nodes, self.rate, self.rsum, self.time+1, self.valve, new_vent))
-        return adj
-
-def astar(rooms, start, verbose=0):
-    rsum = sum([rate for (_,rate,_) in rooms])
-    cmax = SearchState(start, 0, rsum, 9999, 0, 0).cost()
-    init = SearchState(start, 0, rsum, 0, 0, 0)
-    iter = 0
-    dist = {}   # AKA "gscore"
+def astar(rooms, agents, tmax):
+    rsum = sum([rate for (n,rate,dist) in rooms])
+    cmax = tmax * rsum
+    init = SearchState(agents, rsum, tmax)
+    dist = {}
     next = [init]
     vent = 0
-    visited = set([init])
     while len(next) > 0:
         state = heappop(next)
-        if state.time == state.tmax: break
-        #if state.cost() > dist.get(state.key(), cmax): continue
-        iter += 1               # Count iterations for diagnostics
-        if verbose > 1: state.debug()
-        if verbose > 0 and iter%10000 == 0:
-            print(f'Best {vent}, Queued {len(next)}, Visited {len(dist)}')
+        if state.trem == 0: break
+        if state.cost() > dist.get(state.key(), cmax): continue
         for adj in state.next(rooms):
             if adj.cost() >= dist.get(adj.key(), cmax): continue
             vent = max(vent, adj.vent)
             dist[adj.key()] = adj.cost()
-            if adj not in visited:
-                heappush(next, adj)
-                visited.add(adj)
-    if verbose > 0: print(f'Pressure relieved: {vent}')
+            heappush(next, adj)
     return vent
 
 def part1(rooms):
-    return astar(rooms, (0,))
+    return astar(rooms, 1, 30)
 
 def part2(rooms):
-    return astar(rooms, (0,0))
+    return astar(rooms, 2, 26)
 
 TEST = \
 '''
