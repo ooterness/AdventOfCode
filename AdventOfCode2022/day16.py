@@ -22,54 +22,76 @@ def read_input(input):
     rooms = [read_line(line, labels) for line in input.splitlines()] 
     return sorted(rooms)
 
-def dijkstra(rooms, start, verbose=False):
-    # Agents take turns. Divide each minute into N ticks.
-    agents = len(start)                     # Number of agents = Length of initial state
-    max_time = 30 if agents == 1 else 52    # 30 minutes = 30 ticks, or 26 minutes = 52 ticks
-    # Lambda functions for cost-lookup and queue state-vectors.
-    # (Indirect makes it easier to change search order.)
-    make_cost = lambda time,vent,nodes,valve: vent
-    make_dist = lambda time,vent,nodes,valve: (time,nodes,valve)
-    make_next = lambda time,vent,nodes,valve: (time,vent,nodes,valve)
-    get_state = lambda time,vent,nodes,valve: (time,vent,nodes,valve)
-    # Prioritized search using Dijstra's algorithm:
-    dist = {}                               # For each time/rooms/vmask, maximum pressure released
-    next = [make_next(-max_time,0,start,0)] # Min-heap for search queue. (time, cost, nodes, valves)
-    while len(next) > 0:
-        # Next state to consider?
-        (time,vent,nodes,valve) = get_state(*heappop(next))
-        cost = make_cost(time,vent,nodes,valve)
-        dref = make_dist(time,vent,nodes,valve)
-        if time >= 0: break                     # Out of time? Better solution?
-        if cost > dist.get(dref, 0): continue
-        if verbose: print(dref)
-        agent = time % agents                   # Who's moving this tick?
-        time += 1
-        trem = -time // agents                  # Minutes remaining (round down)
-        node = nodes[agent]
-        (lbl,rate,outlets) = rooms[node]        # Lookup current agent/room
+class SearchState:
+    def __init__(self, nodes, time=0, valve=0, vent=0):
+        # Note: Agents take turns -> N turns per minute.
+        self.nodes  = nodes # Location of each agent (tuple)
+        self.time   = time  # Current timestamp (turns)
+        self.tmax   = 30 if len(nodes) == 1 else 52
+        self.valve  = valve # Bit-mask of open valves
+        self.vent   = vent  # Expected total pressure relief
+
+    def __lt__(self, other):
+        return self.cost() < other.cost()
+
+    def agent(self):        # Whose turn is it to act?
+        return self.time % len(self.nodes)
+
+    def cost(self):         # Cost function for min-heap
+        return (-self.vent, self.time)
+
+    def debug(self):
+        print(f'@{self.time}: Vent {self.vent}, Rooms {self.nodes}')
+
+    def key(self):          # Lookup key for best-cost dictionary
+        return (self.nodes, self.time, self.valve)
+
+    def next(self, rooms):  # Return a list of possible actions
+        adj = []
+        # Out of time?
+        if self.time >= self.tmax: return adj
+        # Lookup actions for the current room:
+        node = self.nodes[self.agent()]
+        (lbl, rate, tunnels) = rooms[node]
+        # Try opening the valve?
         vmask = 2**node
-        if (rate > 0) and not (valve & vmask):  # Try opening valve?
-            new_vent = vent - trem * rate
-            new_cost = make_cost(time, new_vent, nodes, valve|vmask)
-            new_dist = make_dist(time, new_vent, nodes, valve|vmask)
-            new_next = make_next(time, new_vent, nodes, valve|vmask)
-            if new_cost < dist.get(new_dist, 0):
-                dist[new_dist] = new_cost
-                heappush(next, new_next)
-        for move in outlets:                    # Try each tunnel?
-            if agents == 2 and agent == 1:
-                new_move = (min(nodes[0], move), max(nodes[0], move))
-            elif agents == 2:
-                new_move = (move, nodes[1])
+        if (rate > 0) and not (self.valve & vmask):
+            trem = (self.tmax - self.time - 1) // len(self.nodes)
+            new_mask = self.valve | vmask
+            new_vent = self.vent + trem * rate
+            adj.append(SearchState(self.nodes, self.time+1, new_mask, new_vent))
+        # Try moving down each tunnel...
+        for move in tunnels:
+            if len(self.nodes) == 1:
+                new_nodes = (move,)
+            elif self.agent() == 1:
+                # Note: Sorting locations after each loop reduces search overlap.
+                new_nodes = (min(self.nodes[0], move), max(self.nodes[0], move))
             else:
-                new_move = (move,)
-            new_dist = make_dist(time, vent, new_move, valve)
-            new_next = make_next(time, vent, new_move, valve)
-            if cost < dist.get(new_dist, 1):
-                dist[new_dist] = cost
-                heappush(next, new_next)
-    return -min(dist.values())
+                new_nodes = (move, self.nodes[1])
+            adj.append(SearchState(new_nodes, self.time+1, self.valve, self.vent))
+        return adj
+
+def dijkstra(rooms, start, verbose=0):
+    cmax = SearchState(start, 9999).cost()
+    iter = 0
+    dist = {}
+    next = [SearchState(start)]
+    vent = 0
+    while len(next) > 0:
+        state = heappop(next)
+        if state.cost() > dist.get(state.key(), cmax): continue
+        iter += 1               # Count iterations for diagnostics
+        if verbose > 1: state.debug()
+        if verbose > 0 and iter%10000 == 0:
+            print(f'Best {vent}, Queued {len(next)}, Visited {len(dist)}')
+        for adj in state.next(rooms):
+            if adj.cost() >= dist.get(adj.key(), cmax): continue
+            vent = max(vent, adj.vent)
+            dist[adj.key()] = adj.cost()
+            heappush(next, adj)
+    if verbose > 0: print(f'Pressure relieved: {vent}')
+    return vent
 
 def part1(rooms):
     return dijkstra(rooms, (0,))
@@ -95,7 +117,6 @@ if __name__ == '__main__':
     test = read_input(TEST.strip())
     input = read_input(get_data(day=16, year=2022))
     assert(part1(test) == 1651)
-    assert(part2(test) == 1707)
     print(f'Part 1: {part1(input)}')
+    assert(part2(test) == 1707)
     print(f'Part 2: {part2(input)}')
-    # 2215 = Too low
