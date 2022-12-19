@@ -3,7 +3,6 @@
 
 from aocd import get_data
 from heapq import heappop, heappush
-import re
 
 def read_line(line, labels):
     # Reads room parameters: Label, Valve/rate, Exits
@@ -22,23 +21,37 @@ def read_input(input):
     rooms = [read_line(line, labels) for line in input.splitlines()] 
     return sorted(rooms)
 
-class SearchState:
-    def __init__(self, nodes, time=0, valve=0, vent=0):
+class SearchState(object):
+    def __init__(self, nodes, rate, rsum, time, valve, vent):
         # Note: Agents take turns -> N turns per minute.
         self.nodes  = nodes # Location of each agent (tuple)
+        self.rate   = rate  # Current vent flow-rate
+        self.rsum   = rsum  # Maximum vent flow-rate
         self.time   = time  # Current timestamp (turns)
         self.tmax   = 30 if len(nodes) == 1 else 52
         self.valve  = valve # Bit-mask of open valves
         self.vent   = vent  # Expected total pressure relief
 
+    def __hash__(self):     # Hash function for "visited"
+        return hash((self.nodes, self.time, self.valve, self.vent))
+
     def __lt__(self, other):
-        return self.cost() < other.cost()
+        return self.hint() < other.hint()
 
     def agent(self):        # Whose turn is it to act?
-        return self.time % len(self.nodes)
+        return self.time % self.agents()
 
-    def cost(self):         # Cost function for min-heap
-        return (-self.vent, self.time)
+    def agents(self):       # Number of agents
+        return len(self.nodes)
+
+    def trem(self):         # Remaining time in minutes
+        return (self.tmax * self.time) // self.agents()
+
+    def cost(self):         # Cost function for problem
+        return self.rsum*(self.time//self.agents()) - self.vent
+
+    def hint(self):         # Cost hint for A* search
+        return self.cost()  # - self.rate * self.trem()
 
     def debug(self):
         print(f'@{self.time}: Vent {self.vent}, Rooms {self.nodes}')
@@ -48,39 +61,44 @@ class SearchState:
 
     def next(self, rooms):  # Return a list of possible actions
         adj = []
-        # Out of time?
-        if self.time >= self.tmax: return adj
+        # Give credit for all open valves.
+        new_vent = self.vent
+        if self.agent() == 0: new_vent += self.rate
+        # Final turn doesn't matter -> just wait.
+        if self.time == self.tmax-1:
+            return [SearchState(self.nodes, self.rate, self.rsum, self.time+1, self.valve, new_vent)]
         # Lookup actions for the current room:
         node = self.nodes[self.agent()]
-        (lbl, rate, tunnels) = rooms[node]
+        (_, rate, tunnels) = rooms[node]
         # Try opening the valve?
         vmask = 2**node
         if (rate > 0) and not (self.valve & vmask):
-            trem = (self.tmax - self.time - 1) // len(self.nodes)
-            new_mask = self.valve | vmask
-            new_vent = self.vent + trem * rate
-            adj.append(SearchState(self.nodes, self.time+1, new_mask, new_vent))
+            adj.append(SearchState(self.nodes, self.rate + rate, self.rsum, self.time+1, self.valve|vmask, new_vent))
         # Try moving down each tunnel...
         for move in tunnels:
-            if len(self.nodes) == 1:
+            if self.agents() == 1:
                 new_nodes = (move,)
             elif self.agent() == 1:
                 # Note: Sorting locations after each loop reduces search overlap.
                 new_nodes = (min(self.nodes[0], move), max(self.nodes[0], move))
             else:
                 new_nodes = (move, self.nodes[1])
-            adj.append(SearchState(new_nodes, self.time+1, self.valve, self.vent))
+            adj.append(SearchState(new_nodes, self.rate, self.rsum, self.time+1, self.valve, new_vent))
         return adj
 
-def dijkstra(rooms, start, verbose=0):
-    cmax = SearchState(start, 9999).cost()
+def astar(rooms, start, verbose=0):
+    rsum = sum([rate for (_,rate,_) in rooms])
+    cmax = SearchState(start, 0, rsum, 9999, 0, 0).cost()
+    init = SearchState(start, 0, rsum, 0, 0, 0)
     iter = 0
-    dist = {}
-    next = [SearchState(start)]
+    dist = {}   # AKA "gscore"
+    next = [init]
     vent = 0
+    visited = set([init])
     while len(next) > 0:
         state = heappop(next)
-        if state.cost() > dist.get(state.key(), cmax): continue
+        if state.time == state.tmax: break
+        #if state.cost() > dist.get(state.key(), cmax): continue
         iter += 1               # Count iterations for diagnostics
         if verbose > 1: state.debug()
         if verbose > 0 and iter%10000 == 0:
@@ -89,15 +107,17 @@ def dijkstra(rooms, start, verbose=0):
             if adj.cost() >= dist.get(adj.key(), cmax): continue
             vent = max(vent, adj.vent)
             dist[adj.key()] = adj.cost()
-            heappush(next, adj)
+            if adj not in visited:
+                heappush(next, adj)
+                visited.add(adj)
     if verbose > 0: print(f'Pressure relieved: {vent}')
     return vent
 
 def part1(rooms):
-    return dijkstra(rooms, (0,))
+    return astar(rooms, (0,))
 
 def part2(rooms):
-    return dijkstra(rooms, (0,0))
+    return astar(rooms, (0,0))
 
 TEST = \
 '''
