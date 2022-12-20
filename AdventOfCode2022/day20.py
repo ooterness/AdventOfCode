@@ -6,9 +6,8 @@ from copy import deepcopy
 
 # Node in a doubly-linked list.
 class Node:
-    def __init__(self, index, value):
+    def __init__(self, value):
         self.prev  = None
-        self.index = index
         self.value = value
         self.next  = None
 
@@ -22,20 +21,21 @@ class Node:
         for n in range(qty): node = node.next
         return node
 
-    def mix(self):
+    def mix(self, key, size):
         # Nothing to do if value is zero.
         if self.value == 0: return
         # Remove self from current position.
         self.prev.next = self.next
         self.next.prev = self.prev
         # Find the nodes before/after our new location.
+        shift = abs(self.value * key) % (size-1)
         if self.value < 0:
-            r = self.left(-self.value)
+            r = self.next.left(shift)
             l = r.prev
         else:
-            l = self.right(self.value)
+            l = self.prev.right(shift)
             r = l.next
-        # Insert self between target nodes.
+        # Insert self between the two target nodes.
         l.next = self
         self.prev = l
         r.prev = self
@@ -43,7 +43,7 @@ class Node:
 
 # Create a circular doubly-linked chain from a list.
 def circle(input):
-    out = [Node(n,x) for (n,x) in enumerate(input)]
+    out = [Node(x) for x in input]
     for (n,x) in enumerate(out):
         x.prev = out[(n-1) % len(out)]
         x.next = out[(n+1) % len(out)]
@@ -59,7 +59,7 @@ def read_input(input):
 
 def part1(input):
     seq = circle(input)
-    for node in seq: node.mix()
+    for node in seq: node.mix(1, len(input))
     n0 = find_value(seq, 0)
     n1 = n0.right(1000)
     n2 = n1.right(1000)
@@ -67,7 +67,15 @@ def part1(input):
     return n1.value + n2.value + n3.value
 
 def part2(input):
-    None
+    key = 811589153
+    seq = circle(input)
+    for n in range(10):
+        for node in seq: node.mix(key, len(input))
+    n0 = find_value(seq, 0)
+    n1 = n0.right(1000)
+    n2 = n1.right(1000)
+    n3 = n2.right(1000)
+    return (n1.value + n2.value + n3.value) * key
 
 TEST = '1\n 2\n -3\n 3\n -2\n 0\n 4'
 
@@ -76,5 +84,5 @@ if __name__ == '__main__':
     input = read_input(get_data(day=20, year=2022))
     assert(part1(test) == 3)
     print(f'Part 1: {part1(input)}')
-    #assert(part2(test) == 1707)
-    #print(f'Part 2: {part2(input)}')
+    assert(part2(test) == 1623178306)
+    print(f'Part 2: {part2(input)}')
