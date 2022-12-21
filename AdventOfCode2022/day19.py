@@ -14,50 +14,58 @@ def np_zeros(n):
 
 INIT_ROBOTS = np_array([1,0,0,0])
 INIT_ORES   = np_zeros(4)
+MAX_TIME    = 24
 
 class Blueprint:
     def __init__(self, line):
         raw = [int(x) for x in re.findall('[0-9]+', line)]
         self.id = raw[0]                    # ID for this blueprint
-        self.costs = [                      # Cost to build each robot:
-            np_array([raw[1],0,0,0]),       # Ore robot
-            np_array([raw[2],0,0,0]),       # Clay robot
-            np_array([raw[3],raw[4],0,0]),  # Obsidian robot
-            np_array([raw[5],0,raw[6],0]),  # Geode robot
-        ]
+        self.costs = np_array([             # Cost to build each robot:
+            [raw[1],0,0,0],                 # Ore robot
+            [raw[2],0,0,0],                 # Clay robot
+            [raw[3],raw[4],0,0],            # Obsidian robot
+            [raw[5],0,raw[6],0],            # Geode robot
+        ])
+        self.cmax = self.costs.max(0)       # Max each column
 
 def read_input(input):
     return [Blueprint(line) for line in input.splitlines()]
 
-def can_build(factory, build):          # Can we afford a given robot?
-    (bp, time, ores, robots) = factory
-    if build is None: return True
-    else: return all(ores >= bp.costs[build])
+def can_afford(ore, cost):                  # Can we afford a given robot?
+    return all(ore >= cost)
 
-def step(factory, build):               # Simulate one timestep
+def should_build(factory, robot):           # Do we need more of a given robot?
+    if robot == 3: return True              # Always good to build geode bots
     (bp, time, ores, robots) = factory
-    new_ores    = ores + robots         # Robots gather resources
-    new_robots  = np_array(robots)
-    if build is not None:               # Build a new robot?
-        new_ores -= bp.costs[build]
-        new_robots[build] += 1
-    return (bp, time+1, new_robots, new_ores)
+    if all(ores >= bp.costs[3]): return False   # Always prioritize geode bots
+    return robots[robot] < bp.cmax[robot]   # Max one robot built per turn
 
-def max_geodes(factory):                # Max geodes from initial state?
+def next(factory, build):                   # Simulate to next decision point
     (bp, time, ores, robots) = factory
-    if time >= 24: return ores[3]       # Final score = Number of geodes
-    if can_build(factory, 3):           # If we can build a geode robot, do so.
-        return max_geodes(step(factory, 3))
-    return max([                        # Recursively try each valid option
-        max_geodes(step(factory, robot))
-        for robot in [None,0,1,2]
-        if can_build(factory, robot)
+    ores2   = np_array(ores)                # Copy input vectors
+    robots2 = np_array(robots)
+    while time < MAX_TIME and build >= 0:
+        if all(ores2 >= bp.costs[build]):   # Can we afford to build?
+            robots2[build] += 1
+            ores2 -= bp.costs[build]
+            build = -1
+        ores2 += robots                     # Robots gather resources
+        time += 1                           # Advance one timestep
+    return (bp, time, ores2, robots2)
+
+def max_geodes(factory):                    # Max geodes from initial state?
+    (bp, time, ores, robots) = factory
+    if time >= MAX_TIME: return ores[3]     # Final score = Number of geodes
+    return max([                            # Recursively try each valid option
+        max_geodes(next(factory, robot))
+        for robot in range(4)
+        if should_build(factory, robot)
     ])
 
 def quality(bp):                        # Calculate quality score
     init = (bp, 0, INIT_ORES, INIT_ROBOTS)
-    print(bp.id * max_geodes(init))#???
-    return bp.id * max_geodes(init)
+    geodes = max_geodes(init)
+    return bp.id * geodes
 
 def part1(bp_list):
     return sum([quality(bp) for bp in bp_list])
