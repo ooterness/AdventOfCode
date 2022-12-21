@@ -14,7 +14,6 @@ def np_zeros(n):
 
 INIT_ROBOTS = np_array([1,0,0,0])
 INIT_ORES   = np_zeros(4)
-MAX_TIME    = 24
 
 class Blueprint:
     def __init__(self, line):
@@ -35,43 +34,48 @@ def can_afford(ore, cost):                  # Can we afford a given robot?
     return all(ore >= cost)
 
 def should_build(factory, robot):           # Do we need more of a given robot?
-    if robot == 3: return True              # Always good to build geode bots
-    (bp, time, ores, robots) = factory
-    if all(ores >= bp.costs[3]): return False   # Always prioritize geode bots
-    return robots[robot] < bp.cmax[robot]   # Max one robot built per turn
+    (bp, time, tmax, ores, robots) = factory
+    # Always prioritize geode bots
+    if robot == 3: return True
+    elif all(ores >= bp.costs[3]): return False
+    # Do we already have enough ore and/or income of this type?
+    return robots[robot] < bp.cmax[robot] \
+       and ores[robot] < 2*bp.cmax[robot]
 
 def next(factory, build):                   # Simulate to next decision point
-    (bp, time, ores, robots) = factory
+    (bp, time, tmax, ores, robots) = factory
     ores2   = np_array(ores)                # Copy input vectors
     robots2 = np_array(robots)
-    while time < MAX_TIME and build >= 0:
+    while time < tmax and build >= 0:
         if all(ores2 >= bp.costs[build]):   # Can we afford to build?
             robots2[build] += 1
             ores2 -= bp.costs[build]
             build = -1
         ores2 += robots                     # Robots gather resources
         time += 1                           # Advance one timestep
-    return (bp, time, ores2, robots2)
+    return (bp, time, tmax, ores2, robots2)
 
-def max_geodes(factory):                    # Max geodes from initial state?
-    (bp, time, ores, robots) = factory
-    if time >= MAX_TIME: return ores[3]     # Final score = Number of geodes
+def simulate(factory):                      # Max geodes from initial state?
+    (bp, time, tmax, ores, robots) = factory
+    if time >= tmax: return ores[3]         # Final score = Number of geodes
     return max([                            # Recursively try each valid option
-        max_geodes(next(factory, robot))
+        simulate(next(factory, robot))
         for robot in range(4)
         if should_build(factory, robot)
     ])
 
-def quality(bp):                        # Calculate quality score
-    init = (bp, 0, INIT_ORES, INIT_ROBOTS)
-    geodes = max_geodes(init)
-    return bp.id * geodes
+def max_geodes(bp, tmax):                   # Max geodes from blueprint?
+    return simulate((bp, 0, tmax, INIT_ORES, INIT_ROBOTS))
+
+def quality(bp):                            # Calculate quality score
+    return bp.id * max_geodes(bp, 24)
 
 def part1(bp_list):
     return sum([quality(bp) for bp in bp_list])
 
-def part2(rooms):
-    None
+def part2(bp_list):
+    g = [max_geodes(bp, 32) for bp in bp_list[0:3]]
+    return g[0] * g[1] * g[2]
 
 TEST = \
 '''
@@ -86,5 +90,6 @@ if __name__ == '__main__':
     assert(quality(test[1]) == 2*12)
     assert(part1(test) == 33)
     print(f'Part 1: {part1(input)}')
-    #assert(part2(test) == 1707)
-    #print(f'Part 2: {part2(input)}')
+    assert(max_geodes(test[0], 32) == 56)
+    assert(max_geodes(test[1], 32) == 62)
+    print(f'Part 2: {part2(input)}')
