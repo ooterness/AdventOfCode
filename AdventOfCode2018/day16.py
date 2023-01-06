@@ -33,8 +33,15 @@ ALL_OPCODES = range(len(ALL_INSTRUCTIONS))
 '''Check whether a given test could match each instruction.'''
 def check_instr(before, instr, after):
     (op, a, b, c) = instr
-    test = lambda fn: fn(a, b, c, before) == after
-    return [test(fn) for fn in ALL_INSTRUCTIONS]
+    test = []
+    for fn in ALL_INSTRUCTIONS:
+        try:
+            reg = deepcopy(before)
+            fn(a, b, c, reg)
+            test.append(reg == after)
+        except opcodes.BadRegister:
+            test.append(False)
+    return test
 
 '''Element-wise AND of a check matrix.'''
 def all_rows(opcode, check):
@@ -95,7 +102,7 @@ def part2(test, prog):
     map = identify_instr(test)
     reg = [0, 0, 0, 0]
     for (op, a, b, c) in prog:
-        reg = map[op](a, b, c, reg)
+        map[op](a, b, c, reg)
     return reg[0]
 
 TEST = \
