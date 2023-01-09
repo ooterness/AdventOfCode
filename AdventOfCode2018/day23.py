@@ -2,39 +2,121 @@
 # Copyright 2022 by Alex Utter
 
 from aocd import get_data
+from heapq import heappop, heappush
 import re
 
 def read_input(input):
-    read_bot = lambda line: tuple([int(x) for x in re.findall('[0-9\-]+', line)])
-    return [read_bot(line) for line in input.splitlines()]
+    read_line = lambda line: [int(x) for x in re.findall('[0-9\-]+', line)]
+    return [Nanobot(*read_line(line)) for line in input.splitlines()]
 
-def in_range(bot_a, bot_b):
-    (xa,ya,za,ra) = bot_a
-    (xb,yb,zb,rb) = bot_b
-    return (abs(xa-xb) + abs(ya-yb) + abs(za-zb)) <= max(ra, rb)
+# Return minimum value of abs(x) for x in [x0..x1]
+def min_abs(x0, x1):
+    if x0 >= 0: return x0   # Both to right
+    if x1 >= 0: return 0    # Straddle origin
+    return -x1              # Both to left
 
-def count_in_range(bots, ref):
-    return sum([in_range(ref, b) for b in bots])
+# Class representing a Nanobot (XYZ + Manhattan radius)
+class Nanobot:
+    def __init__(self, x, y, z, r):
+        (self.x, self.y, self.z, self.r) = (x, y, z, r)
+
+    def in_range(self, x, y, z):
+        dd = abs(self.x - x) + abs(self.y - y) + abs(self.z - z)
+        return dd <= self.r
+
+    def count_in_range(self, bots):
+        return sum([self.in_range(b.x, b.y, b.z) for b in bots])
+
+    def corners(self):
+        return [(self.x, self.y, self.z-self.r),
+                (self.x, self.y, self.z+self.r),
+                (self.x, self.y-self.r, self.z),
+                (self.x, self.y+self.r, self.z),
+                (self.x-self.r, self.y, self.z),
+                (self.x+self.r, self.y, self.z)]
+
+# Class representing a cubic bounding-box.
+class Cube:
+    def __init__(self, x, y, z, r):
+        self.rr = r
+        self.x0 = x
+        self.x1 = x + r - 1
+        self.y0 = y
+        self.y1 = y + r - 1
+        self.z0 = z
+        self.z1 = z + r - 1
+
+    # Minimum Manhattan distance to origin, for Part 2 tiebreaker.
+    def score(self):
+        x = min_abs(self.x0, self.x1)
+        y = min_abs(self.y0, self.y1)
+        z = min_abs(self.z0, self.z1)
+        return x + y + z
+
+    def __lt__(self, other):
+        return self.score() < other.score()
+
+    def corners(self):
+        return [(self.x0, self.y0, self.z0),
+                (self.x0, self.y0, self.z1),
+                (self.x0, self.y1, self.z0),
+                (self.x0, self.y1, self.z1),
+                (self.x1, self.y0, self.z0),
+                (self.x1, self.y0, self.z1),
+                (self.x1, self.y1, self.z0),
+                (self.x1, self.y1, self.z1)]
+
+    # Halve each axis for an eight-way split.
+    def split(self):
+        r = self.rr // 2
+        return [Cube(self.x0,   self.y0,   self.z0,   r),
+                Cube(self.x0,   self.y0,   self.z0+r, r),
+                Cube(self.x0,   self.y0+r, self.z0,   r),
+                Cube(self.x0,   self.y0+r, self.z0+r, r),
+                Cube(self.x0+r, self.y0,   self.z0,   r),
+                Cube(self.x0+r, self.y0,   self.z0+r, r),
+                Cube(self.x0+r, self.y0+r, self.z0,   r),
+                Cube(self.x0+r, self.y0+r, self.z0+r, r)]
+
+    def contains(self, x, y, z):
+        return self.x0 <= x and x <= self.x1 \
+           and self.y0 <= y and y <= self.y1 \
+           and self.z0 <= z and z <= self.z1
+
+    def overlap(self, bot):
+        return self.contains(bot.x, bot.y, bot.z) \
+            or any([bot.in_range(*xyz) for xyz in self.corners()]) \
+            or any([self.contains(*xyz) for xyz in bot.corners()])
+
+    def count_overlap(self, bots):
+        return sum([self.overlap(b) for b in bots])
+
+# Return a size-2^N bounding box for a list of Nanobots.
+def bounding_cube_2n(bots):
+    x0 = min([b.x - b.r for b in bots])
+    x1 = max([b.x + b.r for b in bots])
+    y0 = min([b.y - b.r for b in bots])
+    y1 = max([b.y + b.r for b in bots])
+    z0 = min([b.z - b.r for b in bots])
+    z1 = max([b.z + b.r for b in bots])
+    rr = max(x1 - x0, y1 - y0, z1 - z0)
+    return Cube(x0, y0, z0, 2**rr.bit_length())
 
 def part1(bots):
-    (max_rad, max_idx) = max([(r,n) for n,(x,y,z,r) in enumerate(bots)])
-    return count_in_range(bots, bots[max_idx])  # Includes self
+    (max_rad, max_idx) = max([(bot.r,n) for n, bot in enumerate(bots)])
+    return bots[max_idx].count_in_range(bots)   # Includes self
 
 def part2(bots):
-    # Update running best for a given xyz coordinate.
-    count = lambda x,y,z: count_in_range(bots, (x,y,z,0))
-    dist  = lambda x,y,z: abs(x) + abs(y) + abs(z)
-    score = lambda x,y,z: (count(x,y,z), -dist(x,y,z))
-    # Optimal solution will always be at a "corner".
-    corners = []
-    for (x,y,z,r) in bots:
-        corners.append(score(x, y, z-r))
-        corners.append(score(x, y, z+r))
-        corners.append(score(x, y-r, z))
-        corners.append(score(x, y+r, z))
-        corners.append(score(x-r, y, z))
-        corners.append(score(x+r, y, z))
-    return -max(corners)[1]
+    # Start from a bounding box containing all nanobots.
+    # Keep subdividing, prioritizing by upper bound of final score.
+    queue = [(-len(bots), bounding_cube_2n(bots))]
+    while len(queue) > 0:
+        (_, cube) = heappop(queue)
+        if cube.rr < 2: return cube.score() # Size 1 = Done
+        for sub in cube.split():
+            score = sub.count_overlap(bots)
+            heappush(queue, (-score, sub))
+    return None
 
 TEST1 = \
 '''
