@@ -2,6 +2,18 @@
 
 This is repository holds my solutions to the [Advent of Code](https://adventofcode.com/) puzzles.
 
+# 2017
+
+This year was solved using Rust, over the course of 2023.
+
+Environment: Windows 10 / Cargo 1.66.1
+
+# 2018
+
+This year was solved using Python, in 2022 December through 2023 January.
+
+Environment: Windows 10 / Anaconda 4.8.2
+
 # 2019
 
 This is the first year I participated in real-time.  Everything before this year was done after-the-fact.
@@ -30,7 +42,7 @@ Environment: Windows 10 / Cargo 1.56.0
 
 # 2022
 
-Python this year.
+Python this year.  This is the first year that I completed all solutions by December 25.
 
 Some solutions use the [AOCD package](https://pypi.org/project/advent-of-code-data/) to fetch input data automatically.
 
