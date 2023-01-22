@@ -57,7 +57,6 @@ fn garbage(grp: &Thing) -> i64 {
         Thing::Garbage(s) => s.len() as i64,
         Thing::Group(v) => v.iter().map(|x| garbage(x)).sum::<i64>(),
     }
-    //???12176 is too high
 }
 
 fn part1(grp: &Thing) -> i64 { nesting(grp, 1) }
