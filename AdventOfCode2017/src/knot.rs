@@ -73,6 +73,7 @@ fn convert(input: &str) -> Vec<u8> {
 }
 
 // Special case using part-1 rules.
+#[allow(dead_code)]
 pub fn part1(size: usize, input: &str) -> i64 {
     let mut beads = Knot::new(size);
     for step in input.split(',') {
