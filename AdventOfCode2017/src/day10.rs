@@ -2,82 +2,14 @@
 /// Copyright 2023 by Alex Utter
 
 #[path = "fetch.rs"] mod fetch;
-
-struct Loop {
-    vals: Vec<i64>,
-    posn: usize,
-    skip: usize,
-}
-
-impl Loop {
-    fn new(size: usize) -> Loop {
-        let mut vals = Vec::new();
-        for n in 0..size {vals.push(n as i64);}
-        return Loop { vals:vals, posn:0, skip:0 }
-    }
-
-    fn twist(&mut self, len: usize) {
-        // Make each individual swap...
-        for n in 0..(len/2) {
-            let p1 = (self.posn + n) % self.vals.len();
-            let p2 = (self.posn + len-1 - n) % self.vals.len();
-            (self.vals[p1], self.vals[p2]) = (self.vals[p2], self.vals[p1]);
-        }
-        // Update current cursor position.
-        self.posn = (self.posn + self.skip + len) % self.vals.len();
-        self.skip += 1;
-    }
-
-    fn score(&self) -> i64 {
-        self.vals[0] * self.vals[1]
-    }
-
-    fn xor(&self, size: usize) -> Vec<i64> {
-        assert_eq!(self.vals.len(), size * size);
-        let mut svec: Vec<i64> = Vec::new();
-        for m in 0..size {
-            let mut tmp = 0i64;
-            for n in 0..size { tmp ^= self.vals[size*m+n]; }
-            svec.push(tmp);
-        }
-        return svec;
-    }
-
-    fn hash(&self) -> String {
-        let mut hstr = String::new();
-        for x in self.xor(16).iter() {
-            hstr.push_str(&format!("{:02x}", x));
-        }
-        return hstr;
-    }
-}
-
-// Convert psuedo-ASCII sequence for Part 2 rules.
-fn convert(input: &str) -> Vec<usize> {
-    let mut seq: Vec<usize> = input.chars().map(|x| x as usize).collect();
-    for n in vec![17, 31, 73, 47, 23] {seq.push(n);}
-    return seq
-}
+#[path = "knot.rs"] mod knot;
 
 fn part1(size: usize, input: &str) -> i64 {
-    let mut beads = Loop::new(size);
-    for step in input.split(',') {
-        if let Ok(n) = step.parse::<usize>() {
-            beads.twist(n);
-        }
-    }
-    return beads.score();
+    knot::part1(size, input)
 }
 
 fn part2(input: &str) -> String {
-    let seq = convert(input);
-    let mut beads = Loop::new(256);
-    for _ in 0..64 {
-        for n in seq.iter() {
-            beads.twist(*n);
-        }
-    }
-    return beads.hash();
+    knot::hash_hex(input)
 }
 
 fn main() {
