@@ -96,7 +96,7 @@ fn main() {
     // Fetch problem input from server.
     let input = fetch::get_data(2017, 24).unwrap();
 
-    // Unit tests for the is_prime function.
+    // Unit tests based on the provided examples.
     assert_eq!(stronk(&parse(TEST)), (31, 19));
 
     // Solve for real input.
