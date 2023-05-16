@@ -1,0 +1,11 @@
+[package]
+name = "AdventOfCode2016"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+reqwest = { version = "0.11.*", features = ["blocking"] }
+
+[[bin]]
+name = "day01"
+path = "src/day01.rs"
