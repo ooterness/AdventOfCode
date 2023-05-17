@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+md5 = "0.7.0"
 reqwest = { version = "0.11.*", features = ["blocking"] }
 
 [[bin]]
@@ -21,3 +22,7 @@ path = "src/day03.rs"
 [[bin]]
 name = "day04"
 path = "src/day04.rs"
+
+[[bin]]
+name = "day05"
+path = "src/day05.rs"
