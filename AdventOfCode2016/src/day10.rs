@@ -106,7 +106,7 @@ impl Sim {
             match tgt {
                 Target::Bin(bin) => self.give_bin(bin, tok),
                 Target::Bot(bot) => self.give_bot(bot, tok),
-            }   
+            }
             return true;    // State changed.
         } else {
             return false;   // No actions remaining.

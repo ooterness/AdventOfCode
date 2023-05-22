@@ -47,7 +47,7 @@ impl Data {
             if ch == '-' {continue;}
             *counts.entry(ch).or_insert(0) += 1;
         }
-        
+
         // Sort the list of letter counts.
         let mut heap = BinaryHeap::new();
         for (ch, ct) in counts {
