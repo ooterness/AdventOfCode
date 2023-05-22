@@ -1,2 +1,5 @@
 *.bat
 *.pyc
+*/Cargo.lock
+*/input/*.txt
+*/target
