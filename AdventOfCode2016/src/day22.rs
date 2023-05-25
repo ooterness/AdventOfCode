@@ -10,9 +10,9 @@ struct RowCol(usize, usize);
 
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 struct Node {
-    used: u16,
-    avail: u16,
-    goal: bool,
+    size: usize,
+    used: usize,
+    avail: usize,
 }
 
 impl Node {
@@ -26,32 +26,14 @@ impl Node {
             .collect();
         let col: usize = tokens[1].parse().unwrap();
         let row: usize = tokens[2].parse().unwrap();
-        let size: u16 = tokens[3].parse().unwrap();
-        let used: u16 = tokens[4].parse().unwrap();
-        let avail: u16 = tokens[5].parse().unwrap();
+        let size: usize = tokens[3].parse().unwrap();
+        let used: usize = tokens[4].parse().unwrap();
+        let avail: usize = tokens[5].parse().unwrap();
         assert_eq!(size, used + avail); // Sanity check
         return Some((
             RowCol(row, col),
-            Node {used:used, avail:avail, goal:false}
+            Node {size:size, used:used, avail:avail}
         ));
-    }
-
-    fn drain(&mut self) -> (u16, bool) {
-        let xfer = (self.used, self.goal);
-        self.avail += self.used;
-        self.used   = 0;
-        self.goal   = false;
-        return xfer;
-    }
-
-    fn fill(&mut self, xfer: (u16, bool)) {
-        self.avail -= xfer.0;
-        self.used  += xfer.0;
-        self.goal   = self.goal || xfer.1;
-    }
-
-    fn size(&self) -> u16 {
-        self.used + self.avail
     }
 
     fn viable(&self, other: &Node) -> bool {
@@ -78,9 +60,6 @@ impl Grid {
                 grid.nodes.push(node);
             }
         }
-        // Flag the goal node in the upper-right corner.
-        let goal = RowCol(0, grid.size.1-1);
-        grid.get_mut(&goal).goal = true;
         return grid;
     }
 
@@ -94,26 +73,20 @@ impl Grid {
         return tmp;
     }
 
-    // Get a list of all possible moves.
-    fn moves(&self) -> Vec<Grid> {
-        let mut adj = Vec::new();
+    // Get the location of the target data.
+    fn find_goal(&self) -> RowCol {
+        RowCol(0, self.size.1 - 1)
+    }
+
+    // Get the location of the empty node.
+    fn find_empty(&self) -> RowCol {
         for r in 0..self.size.0 {
             for c in 0..self.size.1 {
-                let rc0 = RowCol(r, c);
-                let aa = self.get(&rc0);
-                for rc1 in self.adj(&rc0).iter() {
-                    let bb = self.get(rc1);
-                    // Destination MUST always be an empty node.
-                    if bb.used == 0 && aa.viable(bb) {
-                        let mut tmp = self.clone();
-                        let xfer = tmp.get_mut(&rc0).drain();
-                        tmp.get_mut(rc1).fill(xfer);
-                        adj.push(tmp);
-                    }
-                }
+                let rc = RowCol(r, c);
+                if self.get(&rc).used == 0 {return rc;}
             }
         }
-        return adj;
+        panic!("Malformed input.");
     }
 
     fn idx(&self, rc: &RowCol) -> usize {
@@ -123,34 +96,6 @@ impl Grid {
     fn get(&self, rc: &RowCol) -> &Node {
         let idx = self.idx(rc);
         self.nodes.get(idx).unwrap()
-    }
-
-    fn get_mut(&mut self, rc: &RowCol) -> &mut Node {
-        let idx = self.idx(rc);
-        self.nodes.get_mut(idx).unwrap()
-    }
-
-    // Force this grid to a simplified state:
-    // Except for jumbo nodes, all nodes are of similar size.
-    // --> Don't bother tracking individual sizes, just 0/1.
-    fn simplify(&self) -> Self {
-        let threshold = 2 * self.nodes[0].size();
-        let mut temp = self.clone();
-        for node in temp.nodes.iter_mut() {
-            if node.size() < threshold {
-                node.avail = 1;
-                node.used  = if node.used > 0 {1} else {0};
-            } else {
-                node.avail = 0;
-                node.used  = 999;
-            }
-        }
-        return temp;
-    }
-
-    // Is this grid in a solved state (Part-2)
-    fn solved(&self) -> bool {
-        self.get(&RowCol(0, 0)).goal
     }
 
     // Count the number of viable pars (Part-1)
@@ -169,23 +114,36 @@ fn part1(input: &str) -> usize {
     Grid::new(input).viable_pairs()
 }
 
+// Original problem is intractable, but the input can be greatly simplified:
+//  * All nodes are either jumbo (i.e., too large to move anywhere) or
+//    uniform in size (i.e., ~75% full with small variations in capacity).
+//  * There is a single empty node with no data.
+//  * As a result, there's no reason to track data as it moves around;
+//    we're simply moving the empty node and dragging the goal with it.
+//  * The only dynamic state is the location of the empty and goal nodes.
 fn part2(input: &str) -> usize {
     // Read and simplify the initial state.
-    let init = Grid::new(input).simplify();
+    let grid = Grid::new(input);
+    let init = (grid.find_empty(), grid.find_goal());
+    let threshold = 2 * grid.nodes[0].size;
     // Set up the search queue.
-    let mut queue: VecDeque<(Grid,usize)> = VecDeque::new();
-    let mut visit: HashSet<Grid> = HashSet::new();
-    queue.push_back( (init.clone(), 0) );
-    visit.insert(init.clone());
-    // Breadth first search
-    let mut mprev = 0usize; //???
-    while let Some((grid,moves)) = queue.pop_front() {
-        if moves > mprev {mprev = moves; println!("{}-{}", moves, queue.len());} //???
-        for next in grid.moves().into_iter() {
-            if next.solved() {
-                return moves+1;
-            } else if visit.insert(next.clone()) {
-                queue.push_back( (next, moves+1) );
+    let mut queue: VecDeque<(RowCol, RowCol, usize)> = VecDeque::new();
+    let mut visit: HashSet<(RowCol, RowCol)> = HashSet::new();
+    queue.push_back((init.0, init.1, 0));
+    visit.insert(init);
+    // Breadth first search until we can move goal data to (0,0).
+    const END_GOAL: RowCol = RowCol(0, 0);
+    while let Some((empty, goal, moves)) = queue.pop_front() {
+        // Consider all moves adjacent to the empty node...
+        for next in grid.adj(&empty).into_iter() {
+            // Are we about to move the goal data?
+            let new_goal = if next == goal {empty} else {goal};
+            if new_goal == END_GOAL {
+                return moves+1;     // Solved!
+            } else if grid.get(&next).size > threshold {
+                continue;           // Ignore jumbo nodes
+            } else if visit.insert((next, new_goal)) {
+                queue.push_back((next, new_goal, moves+1));
             }
         }
     }
