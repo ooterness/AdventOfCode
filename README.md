@@ -2,6 +2,14 @@
 
 This is repository holds my solutions to the [Advent of Code](https://adventofcode.com/) puzzles.
 
+# 2015
+
+This year was solved using Rust, over the course of 2023.
+
+The Rust crate contains one binary per solution. To solve Day 19, run "cargo run --bin day19".
+
+Environment: Windows 10 / Cargo 1.66.1
+
 # 2016
 
 This year was solved using Rust, over the course of 2023.
