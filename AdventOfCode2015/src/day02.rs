@@ -1,4 +1,4 @@
-/// Advent of Code 2015, Day 1
+/// Advent of Code 2015, Day 2
 /// Copyright 2023 by Alex Utter
 
 use std::cmp::max;
