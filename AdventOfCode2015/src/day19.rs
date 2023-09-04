@@ -12,6 +12,7 @@ struct Rules {                          // Rules for manipulating chemicals
     atoms: HashMap<String, u32>,        // Map symbol to index
     symbs: HashMap<u32, String>,        // Map index to symbol
     rules: HashMap<u32, Vec<Chem>>,     // Possible actions by input
+    rinv: HashMap<Chem, Vec<u32>>,      // Inverse rules table
 }
 
 impl Rules {
@@ -23,6 +24,7 @@ impl Rules {
             atoms: HashMap::new(),
             symbs: HashMap::new(),
             rules: HashMap::new(),
+            rinv: HashMap::new(),
         };
         for line in input.trim().lines() {
             for atom in result.atoms(line).into_iter() {
@@ -40,7 +42,8 @@ impl Rules {
                 let words: Vec<&str> = line.trim().split(' ').collect();
                 let ll = result.str2chem(words[0]);
                 let rr = result.str2chem(words[2]);
-                result.rules.entry(ll[0]).or_insert(Vec::new()).push(rr);
+                result.rules.entry(ll[0]).or_insert(Vec::new()).push(rr.clone());
+                result.rinv.entry(rr).or_insert(Vec::new()).push(ll[0]);
             } else {
                 chem = result.str2chem(line);
             }
@@ -64,6 +67,19 @@ impl Rules {
         if tmp.len() > 0 {result.push(tmp);}    // Final atom in string
         return result;
     }
+
+    // Get a list of matching predicates from the inverse rules.
+    fn inverse_match(&self, input: &Chem, posn: usize) -> Vec<Chem> {
+        let mut result = Vec::new();
+        for target in self.rinv.keys() {
+            if posn + target.len() <= input.len() {
+                let all_match = target.iter().enumerate()
+                    .all(|(n,x)| input[posn+n] == *x);
+                if all_match {result.push(target.clone());}
+            }
+        }
+        return result;
+    }
     
     // Convert chemical string to its vector representation.
     fn str2chem(&self, input: &str) -> Chem {
@@ -73,6 +89,7 @@ impl Rules {
     }
 
     // Convert vector representation to a chemical string.
+    // (Useful for debugging, but not used in final version.)
     #[allow(dead_code)]
     fn chem2str(&self, input: &Chem) -> String {
         input.iter()
@@ -81,23 +98,38 @@ impl Rules {
     }
 
     // Return the set of all compounds reachable from a given state.
-    fn iter(&self, state: &State, maxlen: usize) -> State {
-        // For each initial state...
+    fn forward(&self, chem: &Chem) -> State {
         let mut result = State::new();
-        for chem in state.iter() {
-            // For each position in the current chemical...
-            for n in 0..chem.len() {
-                // Apply each matching rule to replace the designated atom.
-                if let Some(rule) = self.rules.get(&chem[n]) {
-                    for output in rule.iter() {
-                        let mut new_chem = Chem::new();
-                        new_chem.extend_from_slice(&chem[0..n]);
-                        new_chem.extend(output);
-                        new_chem.extend_from_slice(&chem[n+1..]);
-                        if new_chem.len() <= maxlen {
-                            result.insert(new_chem);
-                        }
-                    }
+        // For each position in the current chemical...
+        for n in 0..chem.len() {
+            // Apply each matching rule to replace the designated atom.
+            if let Some(rule) = self.rules.get(&chem[n]) {
+                for output in rule.iter() {
+                    let mut new_chem = Chem::new();
+                    new_chem.extend_from_slice(&chem[0..n]);
+                    new_chem.extend(output);
+                    new_chem.extend_from_slice(&chem[n+1..]);
+                    result.insert(new_chem);
+                }
+            }
+        }
+        return result;
+    }
+
+    // Return the set of all compounds that could produce a given state.
+    fn reverse(&self, chem: &Chem) -> State {
+        // For each position in the current chemical...
+        let mut result = State::new();
+        for n in 0..chem.len() {
+            // For each matching inverse rule...
+            for rule in self.inverse_match(chem, n).iter() {
+                // Replace the matching section with each possible precursor.
+                for input in self.rinv[rule].iter() {
+                    let mut new_chem = Chem::new();
+                    new_chem.extend_from_slice(&chem[0..n]);
+                    new_chem.push(*input);
+                    new_chem.extend_from_slice(&chem[n+rule.len()..]);
+                    result.insert(new_chem);
                 }
             }
         }
@@ -105,20 +137,33 @@ impl Rules {
     }
 }
 
+fn shortest(state: &State) -> Chem {
+    let mut best_len = usize::MAX;
+    let mut best_chem = Vec::new();
+    for chem in state.iter() {
+        if chem.len() < best_len {
+            best_len = chem.len();
+            best_chem = chem.clone();
+        }
+    }
+    return best_chem;
+}
+
 fn part1(input: &str) -> usize {
     let (rules, init) = Rules::new(input);
-    let state = State::from([init]);
-    return rules.iter(&state, usize::MAX).len();
+    return rules.forward(&init).len();
 }
 
 fn part2(input: &str) -> usize {
     let (rules, target) = Rules::new(input);
+    let init = rules.str2chem("e");
     let mut count = 0usize;
-    let mut state = State::new();
-    state.insert(rules.str2chem("e"));
-    while !state.contains(&target) {
+    let mut state = State::from([target]);
+    // Greedy algorithm: Each iteration only keeps the shortest option.
+    // TODO: This may not work for all possible inputs?
+    while !state.contains(&init) {
         count += 1;
-        state = rules.iter(&state, target.len());
+        state = rules.reverse(&shortest(&state));
     }
     return count;
 }
