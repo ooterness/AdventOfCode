@@ -187,7 +187,6 @@ fn part1(input: &str) -> usize {
     State::from(input).mana_to_win(false)
 }
 
-// Find maximum expenditure that still leads to a loss.
 fn part2(input: &str) -> usize {
     State::from(input).mana_to_win(true)
 }
