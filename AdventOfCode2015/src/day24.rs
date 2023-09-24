@@ -45,6 +45,16 @@ impl Packages {
     fn split(&self, target: usize) -> Splitter {
         Splitter { index:0, source:&self.list, target:target }
     }
+
+    // Test if this package can be split into N equal parts.
+    fn can_split(&self, parts: usize) -> bool {
+        if parts < 2 {return true;}
+        let target = self.sum / parts;
+        for (_, exc) in self.split(target) {
+            if exc.can_split(parts-1) {return true;}
+        }
+        return false;
+    }
 }
 
 struct Splitter<'a> {
@@ -96,24 +106,28 @@ impl<'a> Iterator for Splitter<'a> {
     }
 }
 
-fn part1(input: &str) -> usize {
+fn solve(input: &str, parts: usize) -> usize {
+    // Read the set of input packages.
     let packages = Packages::from(input);
-    let target = packages.sum / 3;
-    // For each valid subset of packages...
+    let target = packages.sum / parts;
+    // For each valid configuration of the 1st compartment...
     let mut best = (usize::MAX, usize::MAX);
     for (inc, exc) in packages.split(target) {
-        // Confirm the 2nd and 3rd bins can be divided evenly...
-        if let Some(_) = exc.split(target).next() {
-            let next = (inc.len(), inc.prod);
-            if next < best {best = next;}
-        } 
+        // Skip anything that's worse than the current record.
+        let next = (inc.len(), inc.prod);
+        if next >= best {continue;}
+        // Solution is valid if remaining bins can be divided equally.
+        if exc.can_split(parts-1) {best = next;}
     }
     return best.1
 }
 
+fn part1(input: &str) -> usize {
+    solve(input, 3)
+}
+
 fn part2(input: &str) -> usize {
-    let _packages = Packages::from(input);
-    0
+    solve(input, 4)
 }
 
 fn main() {
@@ -123,6 +137,7 @@ fn main() {
     // Unit tests based on the provided examples:
     let test = "1\n2\n3\n4\n5\n7\n8\n9\n10\n11";
     assert_eq!(part1(test), 99);
+    assert_eq!(part2(test), 44);
 
     // Solve for real input.
     println!("Part 1: {}", part1(input.trim()));
