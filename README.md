@@ -65,3 +65,11 @@ Python this year.  This is the first year that I completed all solutions by Dece
 Some solutions use the [AOCD package](https://pypi.org/project/advent-of-code-data/) to fetch input data automatically.
 
 Environment: Windows 10 / Anaconda 4.8.2
+
+# 2023
+
+Back to Rust.
+
+The Rust crate contains one binary per solution. To solve Day 19, run "cargo run --bin day19".
+
+Environment: Windows 10 / Cargo 1.66.1

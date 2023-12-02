@@ -42,7 +42,7 @@ fn digits(input: &str, allow_words: bool) -> i64
     let mut d1 = -1i64;                 // Rightmost digit
     for (n, ch) in input.chars().enumerate() {
         if let Some(dd) = get_digit(ch) {
-            if d0 < 0 {d0 = dd};    // First in sequence
+            if d0 < 0 {d0 = dd};        // First in sequence
             d1 = dd;                    // Last in sequence
         } else if allow_words {
             if d0 < 0 {
