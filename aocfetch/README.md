@@ -14,7 +14,7 @@ This key is used for authentication and should not be shared with anyone.
 
 An example:
 ```
-extern crate aocfetch;
+use aocfetch;
 
 fn main() {
     let input = aocfetch::get_data(2023, 1).unwrap();

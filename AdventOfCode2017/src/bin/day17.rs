@@ -1,7 +1,7 @@
 /// Advent of Code 2017, Day 17
 /// Copyright 2023 by Alex Utter
 
-extern crate aocfetch;
+use aocfetch;
 
 // One node in a singly-linked list.
 struct Node {

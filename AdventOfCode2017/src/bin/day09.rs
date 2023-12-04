@@ -1,7 +1,7 @@
 /// Advent of Code 2017, Day 9
 /// Copyright 2023 by Alex Utter
 
-extern crate aocfetch;
+use aocfetch;
 
 // Per problem description, a Thing is either a Garbage string <...>
 // or a Group {...} containing a comma-delimited list of Things.

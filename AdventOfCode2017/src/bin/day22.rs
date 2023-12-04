@@ -1,7 +1,7 @@
 /// Advent of Code 2017, Day 22
 /// Copyright 2023 by Alex Utter
 
-extern crate aocfetch;
+use aocfetch;
 use std::collections::HashMap;
 
 type Rc = (i64, i64);

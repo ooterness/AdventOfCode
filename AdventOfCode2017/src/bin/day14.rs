@@ -1,7 +1,7 @@
 /// Advent of Code 2017, Day 14
 /// Copyright 2023 by Alex Utter
 
-extern crate aocfetch;
+use aocfetch;
 #[path = "knot.rs"] mod knot;
 use std::collections::HashSet;
 

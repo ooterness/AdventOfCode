@@ -1,7 +1,7 @@
 /// Advent of Code 2017, Day 20
 /// Copyright 2023 by Alex Utter
 
-extern crate aocfetch;
+use aocfetch;
 use std::cmp::Ordering;
 use std::collections::HashSet;
 

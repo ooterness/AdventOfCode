@@ -1,7 +1,7 @@
 /// Advent of Code 2017, Day 16
 /// Copyright 2023 by Alex Utter
 
-extern crate aocfetch;
+use aocfetch;
 
 fn first_char(input: &str) -> char {
     input.chars().next().unwrap()

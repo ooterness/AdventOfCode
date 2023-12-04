@@ -1,7 +1,7 @@
 /// Advent of Code 2017, Day 11
 /// Copyright 2023 by Alex Utter
 
-extern crate aocfetch;
+use aocfetch;
 
 // Cardinal axes are U = NE and V = N.
 // https://www.redblobgames.com/grids/hexagons/#distances

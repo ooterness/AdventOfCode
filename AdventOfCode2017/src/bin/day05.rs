@@ -1,7 +1,7 @@
 /// Advent of Code 2017, Day 5
 /// Copyright 2023 by Alex Utter
 
-extern crate aocfetch;
+use aocfetch;
 
 type Program = Vec<i64>;
 

@@ -1,7 +1,7 @@
 /// Advent of Code 2017, Day 10
 /// Copyright 2023 by Alex Utter
 
-extern crate aocfetch;
+use aocfetch;
 #[path = "knot.rs"] mod knot;
 
 fn part1(size: usize, input: &str) -> i64 {

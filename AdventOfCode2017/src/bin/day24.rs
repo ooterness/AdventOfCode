@@ -1,7 +1,7 @@
 /// Advent of Code 2017, Day 24
 /// Copyright 2023 by Alex Utter
 
-extern crate aocfetch;
+use aocfetch;
 use std::collections::HashSet;
 
 type Segment = (u64, u64);      // Type for each end of segment
