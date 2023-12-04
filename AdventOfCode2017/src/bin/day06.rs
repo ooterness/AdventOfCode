@@ -1,7 +1,7 @@
 /// Advent of Code 2017, Day 6
 /// Copyright 2023 by Alex Utter
 
-#[path = "fetch.rs"] mod fetch;
+extern crate aocfetch;
 use std::collections::HashMap;
 
 type MemState = Vec<usize>;
@@ -46,7 +46,7 @@ fn solve(input: &MemState) -> (usize, usize)
 fn main() {
     // Fetch problem input from server.
     let test: MemState  = vec![0, 2, 7, 0];
-    let input: MemState = read_input(&fetch::get_data(2017, 6).unwrap());
+    let input: MemState = read_input(&aocfetch::get_data(2017, 6).unwrap());
 
     // Unit tests on provided example.
     assert_eq!(solve(&test), (5, 4));

@@ -1,7 +1,7 @@
 /// Advent of Code 2017, Day 12
 /// Copyright 2023 by Alex Utter
 
-#[path = "fetch.rs"] mod fetch;
+extern crate aocfetch;
 use std::collections::HashMap;
 use std::collections::HashSet;
 
@@ -75,7 +75,7 @@ const TEST: &str = "\
 
 fn main() {
     // Fetch problem input from server.
-    let input = fetch::get_data(2017, 12).unwrap();
+    let input = aocfetch::get_data(2017, 12).unwrap();
 
     // Unit tests on provided examples.
     assert_eq!(part1(TEST), 6);

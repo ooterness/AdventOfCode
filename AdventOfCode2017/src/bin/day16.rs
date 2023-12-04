@@ -1,7 +1,7 @@
 /// Advent of Code 2017, Day 16
 /// Copyright 2023 by Alex Utter
 
-#[path = "fetch.rs"] mod fetch;
+extern crate aocfetch;
 
 fn first_char(input: &str) -> char {
     input.chars().next().unwrap()
@@ -102,7 +102,7 @@ fn dance(size: usize, input: &str, count: usize) -> String{
 
 fn main() {
     // Fetch problem input from server.
-    let input = fetch::get_data(2017, 16).unwrap();
+    let input = aocfetch::get_data(2017, 16).unwrap();
 
     // Unit tests on provided examples.
     assert_eq!(dance(5, "s1,x3/4,pe/b", 1), "baedc");

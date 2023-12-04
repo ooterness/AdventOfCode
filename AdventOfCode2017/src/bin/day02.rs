@@ -1,7 +1,7 @@
 /// Advent of Code 2017, Day 2
 /// Copyright 2023 by Alex Utter
 
-#[path = "fetch.rs"] mod fetch;
+extern crate aocfetch;
 
 type Row = Vec<i64>;
 type Matrix = Vec<Row>;
@@ -49,7 +49,7 @@ fn main() {
     // Fetch input from server.
     let test1 = read_matrix("5\t1\t9\t5\n7\t5\t3\n2\t4\t6\t8\n");
     let test2 = read_matrix("5\t9\t2\t8\n9\t4\t7\t3\n3\t8\t6\t5\n");
-    let input = read_matrix(&fetch::get_data(2017, 2).unwrap());
+    let input = read_matrix(&aocfetch::get_data(2017, 2).unwrap());
 
     // Unit tests on provided examples
     assert_eq!(part1(&test1), 18);

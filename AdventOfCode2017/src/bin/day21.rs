@@ -1,7 +1,7 @@
 /// Advent of Code 2017, Day 21
 /// Copyright 2023 by Alex Utter
 
-#[path = "fetch.rs"] mod fetch;
+extern crate aocfetch;
 use std::collections::HashMap;
 
 // Largest cell pattern of interest is 4x4 -> fits in u16.
@@ -283,7 +283,7 @@ const TEST: &str = "\
 
 fn main() {
     // Fetch problem input from server.
-    let input = fetch::get_data(2017, 21).unwrap();
+    let input = aocfetch::get_data(2017, 21).unwrap();
 
     // Unit tests on provided examples.
     assert_eq!(run(TEST, 0), 5);

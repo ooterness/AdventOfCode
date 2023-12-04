@@ -1,7 +1,7 @@
 /// Advent of Code 2017, Day 11
 /// Copyright 2023 by Alex Utter
 
-#[path = "fetch.rs"] mod fetch;
+extern crate aocfetch;
 
 // Cardinal axes are U = NE and V = N.
 // https://www.redblobgames.com/grids/hexagons/#distances
@@ -41,7 +41,7 @@ fn part2(input: &str) -> i64 {
 
 fn main() {
     // Fetch problem input from server.
-    let input = fetch::get_data(2017, 11).unwrap();
+    let input = aocfetch::get_data(2017, 11).unwrap();
 
     // Unit tests on provided examples.
     assert_eq!(part1("ne,ne,ne"), 3);

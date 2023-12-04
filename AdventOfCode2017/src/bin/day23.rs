@@ -1,7 +1,7 @@
 /// Advent of Code 2017, Day 23
 /// Copyright 2023 by Alex Utter
 
-#[path = "fetch.rs"] mod fetch;
+extern crate aocfetch;
 
 enum Opcode {
     SetI(usize, i64),
@@ -114,7 +114,7 @@ fn part2(input: &str) -> i64 {
 
 fn main() {
     // Fetch problem input from server.
-    let input = fetch::get_data(2017, 23).unwrap();
+    let input = aocfetch::get_data(2017, 23).unwrap();
 
     // Unit tests for the is_prime function.
     assert_eq!(is_prime(17), true);

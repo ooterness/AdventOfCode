@@ -1,7 +1,7 @@
 /// Advent of Code 2017, Day 15
 /// Copyright 2023 by Alex Utter
 
-#[path = "fetch.rs"] mod fetch;
+extern crate aocfetch;
 
 // Scale factors for the two generators.
 const SCALE_A: u64 = 16807;
@@ -64,7 +64,7 @@ fn part2(seed_a: u64, seed_b: u64) -> usize {
 
 fn main() {
     // Fetch problem input from server.
-    let input = parse(&fetch::get_data(2017, 15).unwrap());
+    let input = parse(&aocfetch::get_data(2017, 15).unwrap());
 
     // Unit tests on provided examples.
     assert_eq!(part1(65, 8921), 588);

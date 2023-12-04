@@ -1,7 +1,7 @@
 /// Advent of Code 2017, Day 18
 /// Copyright 2023 by Alex Utter
 
-#[path = "fetch.rs"] mod fetch;
+extern crate aocfetch;
 use std::collections::VecDeque;
 
 enum Opcode {
@@ -182,7 +182,7 @@ rcv d";
 
 fn main() {
     // Fetch problem input from server.
-    let input = fetch::get_data(2017, 18).unwrap();
+    let input = aocfetch::get_data(2017, 18).unwrap();
 
     // Unit tests on provided examples.
     assert_eq!(part1(TEST1), 4);

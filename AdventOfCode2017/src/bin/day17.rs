@@ -1,7 +1,7 @@
 /// Advent of Code 2017, Day 17
 /// Copyright 2023 by Alex Utter
 
-#[path = "fetch.rs"] mod fetch;
+extern crate aocfetch;
 
 // One node in a singly-linked list.
 struct Node {
@@ -65,7 +65,7 @@ fn part2(step: usize, size: u64) -> u64 {
 
 fn main() {
     // Fetch problem input from server.
-    let input = fetch::get_data(2017, 17).unwrap();
+    let input = aocfetch::get_data(2017, 17).unwrap();
     let step: usize = input.trim().parse().unwrap();
 
     // Unit tests on provided examples.

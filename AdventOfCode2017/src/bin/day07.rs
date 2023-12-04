@@ -1,7 +1,7 @@
 /// Advent of Code 2017, Day 7
 /// Copyright 2023 by Alex Utter
 
-#[path = "fetch.rs"] mod fetch;
+extern crate aocfetch;
 use std::collections::HashMap;
 
 struct Program {
@@ -137,7 +137,7 @@ cntj (57)";
 fn main() {
     // Fetch problem input from server.
     let test: Stack = Stack::new(&TEST);
-    let input: Stack = Stack::new(&fetch::get_data(2017, 7).unwrap());
+    let input: Stack = Stack::new(&aocfetch::get_data(2017, 7).unwrap());
 
     // Unit tests on provided example.
     assert_eq!(test.root().unwrap(), "tknk");

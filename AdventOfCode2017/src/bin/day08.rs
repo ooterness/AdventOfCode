@@ -1,7 +1,7 @@
 /// Advent of Code 2017, Day 8
 /// Copyright 2023 by Alex Utter
 
-#[path = "fetch.rs"] mod fetch;
+extern crate aocfetch;
 use std::collections::HashMap;
 
 enum Compare {
@@ -106,7 +106,7 @@ c inc -20 if c == 10";
 fn main() {
     // Fetch problem input from server.
     let test  = Program::new(&TEST);
-    let input = Program::new(&fetch::get_data(2017, 8).unwrap());
+    let input = Program::new(&aocfetch::get_data(2017, 8).unwrap());
 
     // Unit tests on provided example.
     assert_eq!(part1(&test), 1);

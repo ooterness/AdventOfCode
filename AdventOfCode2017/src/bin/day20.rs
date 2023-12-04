@@ -1,7 +1,7 @@
 /// Advent of Code 2017, Day 20
 /// Copyright 2023 by Alex Utter
 
-#[path = "fetch.rs"] mod fetch;
+extern crate aocfetch;
 use std::cmp::Ordering;
 use std::collections::HashSet;
 
@@ -97,7 +97,7 @@ p=< 3,0,0>, v=<-1,0,0>, a=< 0,0,0>";
 
 fn main() {
     // Fetch problem input from server.
-    let input = fetch::get_data(2017, 20).unwrap();
+    let input = aocfetch::get_data(2017, 20).unwrap();
 
     // Unit tests on provided examples.
     assert_eq!(part1(TEST1), 0);

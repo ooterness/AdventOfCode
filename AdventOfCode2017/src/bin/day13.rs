@@ -1,7 +1,7 @@
 /// Advent of Code 2017, Day 13
 /// Copyright 2023 by Alex Utter
 
-#[path = "fetch.rs"] mod fetch;
+extern crate aocfetch;
 use std::collections::HashMap;
 
 struct Firewall {
@@ -67,7 +67,7 @@ const TEST: &str = "0: 3\n1: 2\n4: 4\n6: 4";
 
 fn main() {
     // Fetch problem input from server.
-    let input = fetch::get_data(2017, 13).unwrap();
+    let input = aocfetch::get_data(2017, 13).unwrap();
 
     // Unit tests on provided examples.
     assert_eq!(part1(TEST), 24);

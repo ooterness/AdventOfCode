@@ -1,7 +1,7 @@
 /// Advent of Code 2017, Day 5
 /// Copyright 2023 by Alex Utter
 
-#[path = "fetch.rs"] mod fetch;
+extern crate aocfetch;
 
 type Program = Vec<i64>;
 
@@ -45,7 +45,7 @@ fn part2(input: &Program) -> usize
 fn main() {
     // Fetch problem input from server.
     let test: Program  = vec![0, 3, 0, 1, -3];
-    let input: Program = read_input(&fetch::get_data(2017, 5).unwrap());
+    let input: Program = read_input(&aocfetch::get_data(2017, 5).unwrap());
 
     // Unit tests on provided example.
     assert_eq!(part1(&test), 5);

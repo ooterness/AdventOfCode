@@ -1,7 +1,7 @@
 /// Advent of Code 2017, Day 9
 /// Copyright 2023 by Alex Utter
 
-#[path = "fetch.rs"] mod fetch;
+extern crate aocfetch;
 
 // Per problem description, a Thing is either a Garbage string <...>
 // or a Group {...} containing a comma-delimited list of Things.
@@ -65,7 +65,7 @@ fn part2(grp: &Thing) -> i64 { garbage(grp) }
 
 fn main() {
     // Fetch problem input from server.
-    let input = parse(&fetch::get_data(2017, 9).unwrap());
+    let input = parse(&aocfetch::get_data(2017, 9).unwrap());
 
     // Unit tests on provided examples.
     assert_eq!(part1(&parse("{}")), 1);

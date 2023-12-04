@@ -1,7 +1,7 @@
 /// Advent of Code 2017, Day 1
 /// Copyright 2023 by Alex Utter
 
-#[path = "fetch.rs"] mod fetch;
+extern crate aocfetch;
 
 fn to_digit(x: &char) -> u64
 {
@@ -32,7 +32,7 @@ fn part2(input: &str) -> u64
 
 fn main() {
     // Fetch input from server.
-    let input = fetch::get_data(2017, 1).unwrap();
+    let input = aocfetch::get_data(2017, 1).unwrap();
 
     // Unit tests on provided examples
     assert_eq!(part1("1122"), 3);
