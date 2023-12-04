@@ -8,39 +8,35 @@
 
 extern crate reqwest;
 use reqwest::blocking::Client;
-use std::env;
-use std::fs;
-use std::io::Result;
-use std::path::Path;
+type ErrMsg = Box<dyn std::error::Error>;
 
 /// Cache filename for a given year/day.
 fn cache_filename(year: &usize, day: &usize) -> String
 {
-    return format!("input/input_{}_{:02}.txt", year, day);
+    format!("input/input_{}_{:02}.txt", year, day)
 }
 
 /// Fetch input for a given year/day from the local cache.
 fn read_from_cache(year: &usize, day: &usize) -> Option<String>
 {
-    let filename = cache_filename(year, day);
-    return fs::read_to_string(filename).ok();
+    std::fs::read_to_string(&cache_filename(year, day)).ok()
 }
 
 /// Write input data to the local cache.
-fn save_to_cache(year: &usize, day: &usize, data: &str) -> Result<()>
+fn save_to_cache(year: &usize, day: &usize, data: &str) -> Result<(), ErrMsg>
 {
     let filename = cache_filename(year, day);
-    let parent = Path::new(&filename).parent().unwrap();
-    fs::create_dir_all(&parent)?;
-    fs::write(&filename, data)?;
+    let parent = std::path::Path::new(&filename).parent().unwrap();
+    std::fs::create_dir_all(&parent)?;
+    std::fs::write(&filename, data)?;
     Ok(())
 }
 
 /// Fetch input for a given year/day from the Advent of Code server.
 /// Requires environment variable "AOC_SESSION" for authentication.
-fn read_from_web(year: &usize, day: &usize) -> Option<String>
+fn read_from_web(year: &usize, day: &usize) -> Result<String, ErrMsg>
 {
-    if let Ok(session) = env::var("AOC_SESSION") {
+    if let Ok(session) = std::env::var("AOC_SESSION") {
         // Initialize HTTPS client.
         let client = Client::builder()
             .user_agent("ooterness_aocd_knockoff")
@@ -50,28 +46,41 @@ fn read_from_web(year: &usize, day: &usize) -> Option<String>
         let tok = format!("session={}", session);
         let url = format!("https://adventofcode.com/{}/day/{}/input", year, day);
 
-        // Attempt to fetch the input data.
-        return client.get(url)
+        // Attempt to fetch the input data from the AoC server.
+        let response = client.get(url)
             .header(reqwest::header::COOKIE, &tok)
-            .send().ok()
-            .and_then( |x| x.text().ok() );
-    } else { None }
+            .send()?;
+        let status = response.status().as_u16();
+        let data = response.text()?;
+
+        // Filter by HTTP response code.
+        // We could use "error_from_response()", but custom error messages
+        // from the AoC server are much easier for end-users to understand.
+        if status == 200 {
+            // 200 OK indicates the message is the user's input data.
+            return Ok(data);
+        } else {
+            // Any other response contains a human-readable error message.
+            // (e.g., Bad login token, problem not yet posted, etc.)
+            return Err(data.into());
+        }
+    } else {
+        return Err("Missing AOC_SESSION environment variable. Instructions here:\n\
+                    https://pypi.org/project/advent-of-code-data/".into());
+    }
 }
 
 /// Fetch input for a given year/day from cache if available.
 /// Otherwise, download from server and update local cache.
-pub fn get_data(year: usize, day: usize) -> Option<String>
+pub fn get_data(year: usize, day: usize) -> Result<String, ErrMsg>
 {
-    if let Some(data) = read_from_cache(&year, &day) {
-        // Use local cache.
-        return Some(data);
-    } else if let Some(data) = read_from_web(&year, &day) {
-        // Fetch from server and update cache.
-        save_to_cache(&year, &day, &data)
-            .unwrap_or_else(|err| println!("{}", err));
-        return Some(data);
-    } else {
-        // No cache and unable to contact server.
-        return None;
-    }
+    // Use local cache if possible.
+    if let Some(data) = read_from_cache(&year, &day) {return Ok(data);}
+
+    // Attempt to fetch from server...
+    let data = read_from_web(&year, &day)?;
+
+    // If successful, update cache before returning.
+    save_to_cache(&year, &day, &data)?;
+    return Ok(data);
 }
