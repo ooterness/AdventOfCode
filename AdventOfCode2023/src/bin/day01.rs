@@ -1,7 +1,7 @@
 /// Advent of Code 2023, Day 1
 /// Copyright 2023 by Alex Utter
 
-#[path = "fetch.rs"] mod fetch;
+extern crate aocfetch as fetch;
 
 // Parse a single numeric digit.
 fn get_digit(ch: char) -> Option<i64>

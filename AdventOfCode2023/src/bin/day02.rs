@@ -1,7 +1,7 @@
 /// Advent of Code 2023, Day 2
 /// Copyright 2023 by Alex Utter
 
-#[path = "fetch.rs"] mod fetch;
+extern crate aocfetch as fetch;
 use core::cmp::max;
 
 // A triplet of red, green, and blue marbles.

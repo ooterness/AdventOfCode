@@ -1,7 +1,7 @@
 /// Advent of Code 2023, Day 3
 /// Copyright 2023 by Alex Utter
 
-#[path = "fetch.rs"] mod fetch;
+extern crate aocfetch as fetch;
 use std::collections::HashMap;
 use std::collections::HashSet;
 
