@@ -1,7 +1,7 @@
 /// Advent of Code 2023, Day 3
 /// Copyright 2023 by Alex Utter
 
-extern crate aocfetch as fetch;
+use aocfetch;
 use std::collections::HashMap;
 use std::collections::HashSet;
 
@@ -126,7 +126,7 @@ const EXAMPLE: &'static str = "\
 
 fn main() {
     // Fetch input from server.
-    let input = fetch::get_data(2023, 3).unwrap();
+    let input = aocfetch::get_data(2023, 3).unwrap();
 
     // Unit tests on provided examples
     assert_eq!(part1(EXAMPLE), 4361);

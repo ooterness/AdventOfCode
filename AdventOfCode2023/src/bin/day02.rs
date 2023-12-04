@@ -1,7 +1,7 @@
 /// Advent of Code 2023, Day 2
 /// Copyright 2023 by Alex Utter
 
-extern crate aocfetch as fetch;
+use aocfetch;
 use core::cmp::max;
 
 // A triplet of red, green, and blue marbles.
@@ -93,7 +93,7 @@ const EXAMPLE: &'static str = "\
 
 fn main() {
     // Fetch input from server.
-    let input = fetch::get_data(2023, 2).unwrap();
+    let input = aocfetch::get_data(2023, 2).unwrap();
 
     // Unit tests on provided examples
     assert_eq!(part1(EXAMPLE), 8);

@@ -1,7 +1,7 @@
 /// Advent of Code 2023, Day 1
 /// Copyright 2023 by Alex Utter
 
-extern crate aocfetch as fetch;
+use aocfetch;
 
 // Parse a single numeric digit.
 fn get_digit(ch: char) -> Option<i64>
@@ -70,7 +70,7 @@ fn part2(input: &str) -> i64
 
 fn main() {
     // Fetch input from server.
-    let input = fetch::get_data(2023, 1).unwrap();
+    let input = aocfetch::get_data(2023, 1).unwrap();
 
     // Unit tests on provided examples
     assert_eq!(digits("1abc2", false),              12);
