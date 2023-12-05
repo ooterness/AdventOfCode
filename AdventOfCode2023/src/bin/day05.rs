@@ -4,6 +4,8 @@
 use aocfetch;
 use std::collections::HashMap;
 
+const DEBUG: bool = false;
+
 struct Range {
     dst: usize,
     src: usize,
@@ -29,8 +31,8 @@ impl Range {
         Range { dst: tok[0], src: tok[1], len: tok[2] }
     }
 
-    // Does this range contain the given input?
-    fn apply(&self, val: usize) -> Option<usize> {
+    // Forward conversion, if value falls within this range.
+    fn fwd_one(&self, val: usize) -> Option<usize> {
         if self.src <= val && val < self.src + self.len {
             Some(self.dst + val - self.src)
         } else {
@@ -46,13 +48,57 @@ impl Map {
         Map { src: tok[0].to_string(), dst: tok[2].to_string(), ranges: Vec::new() }
     }
 
-    // Apply this numeric map.
-    fn convert(&self, src: usize) -> usize {
+    // Normalize this mapping by sorting the segments.
+    fn normalize(&mut self) {
+        self.ranges.sort_by(|a,b| a.src.partial_cmp(&b.src).unwrap());
+    }
+
+    // Apply this numeric map to a single value.
+    fn fwd_one(&self, src: usize) -> usize {
         // Brute-force search across each range...
         for r in self.ranges.iter() {
-            if let Some(dst) = r.apply(src) {return dst;}
+            if let Some(dst) = r.fwd_one(src) {return dst;}
         }
         return src; // No match = passthrough
+    }
+
+    // Apply this numeric map to a range of values.
+    fn fwd_range(&self, src: (usize,usize)) -> Vec<(usize,usize)> {
+        let mut result = Vec::new();
+        let mut src_min = src.0;
+        let src_max = src.0 + src.1;
+        for range in self.ranges.iter() {
+            // Skip this rule if input range is entirely to the right.
+            if src_min >= range.src + range.len {continue;}
+            // Process any portions to the left of the current rule.
+            if src_max <= range.src {
+                // Passthrough for the entire remaining input.
+                if DEBUG {println!("A {}-{}", src_min, src_max);}
+                result.push((src_min, src_max - src_min));
+                src_min = src_max; break;
+            } else if src_min < range.src {
+                // Passthrough for the leading portion only.
+                if DEBUG {println!("B {}-{}", src_min, src_max);}
+                result.push((src_min, range.src - src_min));
+                src_min = range.src;
+            }
+            // Process any portions that fall within the current rule.
+            let dst_min = range.dst + src_min - range.src;
+            if src_max <= range.src + range.len {
+                // Map the remaining portion and stop.
+                if DEBUG {println!("C {}-{}", src_min, src_max);}
+                result.push((dst_min, src_max - src_min));
+                src_min = src_max; break;
+            } else {
+                // Map up to the end of the current rule and continue.
+                if DEBUG {println!("D {}-{}", src_min, src_max);}
+                result.push((dst_min, range.src + range.len - src_min));
+                src_min = range.src + range.len;
+            }
+        }
+        // Passthrough for any trailing portion.
+        if src_min < src_max {result.push((src_min, src_max - src_min));}
+        return result;
     }
 }
 
@@ -77,13 +123,22 @@ impl Almanac {
                 sec.ranges.push(Range::new(line));
             }
         }
+        for sec in almanac.maps.values_mut() {sec.normalize();}
         return almanac;
     }
 
-    // Apply the designated mapping.
-    fn convert(&self, typ: &mut String, idx: &mut Vec<usize>) {
+    // Apply the designated mapping to in-place individual values.
+    fn fwd_one(&self, typ: &mut String, idx: &mut Vec<usize>) {
         let map = &self.maps[typ];
-        for v in idx.iter_mut() {*v = map.convert(*v);}
+        for x in idx.iter_mut() {*x = map.fwd_one(*x);}
+        *typ = map.dst.clone();
+    }
+
+    // Apply the designated mapping to a list of ranges.
+    fn fwd_range(&self, typ: &mut String, idx: &mut Vec<(usize,usize)>) {
+        if DEBUG {println!("{}: {:?}", typ, idx);}
+        let map = &self.maps[typ];
+        *idx = idx.into_iter().map(|x| map.fwd_range(*x)).flatten().collect();
         *typ = map.dst.clone();
     }
 }
@@ -94,13 +149,21 @@ fn part1(input: &str) -> usize {
     let mut idx = almanac.seeds.clone();
     let mut typ = "seed".to_string();
     // Search until we find locations.
-    while typ != "location" {almanac.convert(&mut typ, &mut idx);}
+    while typ != "location" {almanac.fwd_one(&mut typ, &mut idx);}
     return idx.into_iter().min().unwrap();
 }
 
 // Solve using Part-2 rules: Win additional cards
 fn part2(input: &str) -> usize {
-    0 //???
+    // Set initial conditions.
+    let almanac = Almanac::new(input);
+    let seed0 = almanac.seeds.iter().cloned().step_by(2);
+    let seed1 = almanac.seeds.iter().cloned().skip(1).step_by(2);
+    let mut idx = seed0.zip(seed1).collect();
+    let mut typ = "seed".to_string();
+    // Search until we find locations.
+    while typ != "location" {almanac.fwd_range(&mut typ, &mut idx);}
+    return idx.into_iter().map(|x| x.0).min().unwrap();
 }
 
 const EXAMPLE: &'static str = "\
@@ -137,7 +200,7 @@ fn main() {
 
     // Unit tests on provided examples
     assert_eq!(part1(EXAMPLE), 35);
-    assert_eq!(part2(EXAMPLE), 0);
+    assert_eq!(part2(EXAMPLE), 46);
 
     // Solve for real input.
     println!("Part 1: {}", part1(input.trim()));
