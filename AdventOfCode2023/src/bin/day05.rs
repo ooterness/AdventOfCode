@@ -153,7 +153,6 @@ fn part1(input: &str) -> usize {
     return idx.into_iter().min().unwrap();
 }
 
-// Solve using Part-2 rules: Win additional cards
 fn part2(input: &str) -> usize {
     // Set initial conditions.
     let almanac = Almanac::new(input);
