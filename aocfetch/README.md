@@ -9,7 +9,7 @@ To use this crate:
 * Follow the [AoCD instructions](https://pypi.org/project/advent-of-code-data/) to set the AOC_SESSION environment variable.\
 This key is used for authentication and should not be shared with anyone.
 * Add the `aocfetch` crate to your Cargo.toml `[dependencies]` section:\
-`aocfetch = { path = "https://github.com/ooterness/AdventOfCode.git" }`
+`aocfetch = { git = "https://github.com/ooterness/AdventOfCode.git" }`
 * Import the crate and call `aocfetch::get_data(year, day)` to fetch your input data.
 
 An example:
