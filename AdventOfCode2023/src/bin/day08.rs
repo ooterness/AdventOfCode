@@ -77,9 +77,12 @@ impl Maze {
     }
 }
 
-// Increment a += k*b such that a >= c.
+// Increment "a += k*b", choosing the smallest k such that "a + kb >= c".
 fn incr(a: &mut usize, b: usize, c: usize) {
-    *a += b * ((c - *a + b - 1) / b);
+    if *a < c {
+        let k = (c - *a + b - 1) / b;   // Divide rounding up
+        *a += k * b;
+    }
 }
 
 // Given a pair of Repeat objects, find the least common multiple.
