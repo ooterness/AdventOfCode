@@ -6,18 +6,15 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::collections::VecDeque;
 
-const DEBUG: bool = true;
+const DEBUG: bool = false;
 
 #[derive(Clone, Copy, Eq, Hash, Ord, PartialEq, PartialOrd)]
 struct Rc(isize, isize);        // Row + column
 
 const DIR_NW: Rc = Rc(-1,-1);
 const DIR_N:  Rc = Rc(-1, 0);
-const DIR_NE: Rc = Rc(-1, 1);
 const DIR_E:  Rc = Rc( 0, 1);
-const DIR_SE: Rc = Rc( 1, 1);
 const DIR_S:  Rc = Rc( 1, 0);
-const DIR_SW: Rc = Rc( 1,-1);
 const DIR_W:  Rc = Rc( 0,-1);
 const DIRECTIONS: [Rc;4] = [DIR_N, DIR_E, DIR_S, DIR_W];
 
@@ -28,20 +25,11 @@ struct Pipe {
 struct Maze {
     pipes: HashMap<Rc, Pipe>,   // Pipes at each R/C coordinate
     start: Rc,                  // Starting coordinate
-    size:  Rc,                  // Maximum rows and columns
 }
 
 impl Rc {
     fn add(&self, other: &Self) -> Self {
         Self(self.0 + other.0, self.1 + other.1)
-    }
-
-    fn expand(&self) -> Self {
-        Self(3*self.0+1, 3*self.1+1)
-    }
-
-    fn contract(&self) -> Self {
-        Self(self.0/3, self.1/3)
     }
 }
 
@@ -64,11 +52,8 @@ impl Maze {
         // Build the maze and note starting position.
         let mut pipes = HashMap::new();
         let mut start = Rc(0,0);
-        let mut rcmax = Rc(0,0);
         for (r,line) in input.trim().lines().enumerate() {
-            rcmax.0 = core::cmp::max(rcmax.0, r as isize);
             for (c,ch) in line.trim().chars().enumerate() {
-                rcmax.1 = core::cmp::max(rcmax.1, c as isize);
                 let rc = Rc(r as isize, c as isize);
                 pipes.insert(rc, Pipe::new(ch));
                 if ch == 'S' { start = rc; }
@@ -81,7 +66,19 @@ impl Maze {
                 pipes.get_mut(&start).unwrap().next[n] = adj.next[(n+2)%4];
             }
         }
-        return Maze { pipes:pipes, start:start, size:rcmax.add(&DIR_SE) };
+        return Maze { pipes:pipes, start:start };
+    }
+
+    // Print a HashSet for debugging.
+    fn debug(set: &HashSet<Rc>) {
+        let rmax = set.iter().map(|rc| rc.0).max().unwrap_or(1);
+        let cmax = set.iter().map(|rc| rc.1).max().unwrap_or(1);
+        for r in 0..=rmax {
+            for c in 0..=cmax {
+                print!("{}", if set.contains(&Rc(r,c)) {'*'} else {'-'});
+            }
+            println!(" Row {}", r);
+        }
     }
 
     // Breadth-first search along the main loop.
@@ -100,60 +97,36 @@ impl Maze {
                 }
             }
         }
+        if DEBUG {Self::debug(&result.keys().cloned().collect());}
         return result;
     }
 
-    // Find a list of tiles outside the main loop.
-    fn outer(&self) -> HashSet<Rc> {
-        // First, expand the maze by a factor of three.
-        let mut maze: HashSet<Rc> = HashSet::new();
-        for (rc,p) in self.pipes.iter() {
-            // Diagonals are always passable.
-            let rc2 = rc.expand();
-            maze.insert(rc2.add(&DIR_NW));
-            maze.insert(rc2.add(&DIR_NE));
-            maze.insert(rc2.add(&DIR_SW));
-            maze.insert(rc2.add(&DIR_SE));
-            // Check connections to adjacent tiles.
-            for (n,d) in DIRECTIONS.iter().enumerate() {
-                if !p.next[n] {maze.insert(rc2.add(d));}
+    // Test if a given tile is inside the provided loop.
+    fn inner_test(&self, path: &HashSet<Rc>, start: &Rc) -> bool {
+        if path.contains(start) {return false;}
+        let mut count = 0usize;             // Count wall-crossings.
+        let mut pos = start.add(&DIR_NW);   // Scan until we reach edge...
+        while let Some(pipe) = self.pipes.get(&pos) {
+            if path.contains(&pos) {
+                if pipe.next[0] && pipe.next[2] {count += 1;}
+                if pipe.next[1] && pipe.next[3] {count += 1;}
+                if pipe.next[0] && pipe.next[3] {count += 1;}
+                if pipe.next[1] && pipe.next[2] {count += 1;}
             }
+            pos = pos.add(&DIR_NW);
         }
-        // Add an outer ring to bypass weird pipes at edge.
-        let start = Rc(0,0).expand().add(&DIR_NW);
-        let rmax = 3 * self.size.0;
-        let cmax = 3 * self.size.1;
-        for r in -1..rmax {maze.insert(Rc(r,  -1));}    // Left
-        for r in -1..rmax {maze.insert(Rc(r,cmax));}    // Right
-        for c in -1..cmax {maze.insert(Rc(-1,  c));}    // Top
-        for c in -1..cmax {maze.insert(Rc(rmax,c));}    // Bottom
-        // Flood-fill starting from the upper-left corner.
-        let mut result: HashSet<Rc> = HashSet::new();
-        let mut queue: VecDeque<Rc> = VecDeque::new();
-        result.insert(start);
-        queue.push_back(start);
-        while let Some(rc) = queue.pop_front() {
-            for d in DIRECTIONS.iter() {
-                let adj = rc.add(d);
-                if maze.contains(&adj) && !result.contains(&adj) {
-                    result.insert(adj);
-                    queue.push_back(adj);
-                }
-            }
+        return (count % 2) > 0;
+    }
+
+    // List all the tiles completely inside the main loop.
+    fn inner(&self) -> HashSet<Rc> {
+        let path: HashSet<Rc> = self.trace().into_keys().collect();
+        let mut result = HashSet::new();
+        for rc in self.pipes.keys() {
+            if self.inner_test(&path, rc) {result.insert(*rc);}
         }
-        if DEBUG {
-            for r in -1..=rmax {
-                for c in -1..=cmax {
-                    print!("{}", if result.contains(&Rc(r,c)) {'*'} else {' '});
-                }
-                println!(" Row {}", r+1);
-            }
-        }
-        // Realign the result to the original grid.
-        return result.iter()
-            .map(|rc| rc.contract())
-            .filter(|rc| self.pipes.contains_key(rc))
-            .collect();
+        if DEBUG {Self::debug(&result);}
+        return result;
     }
 }
 
@@ -164,7 +137,7 @@ fn part1(input: &str) -> usize {
 
 fn part2(input: &str) -> usize {
     let maze = Maze::new(input);
-    return maze.pipes.len() - maze.outer().len();
+    return maze.inner().len();
 }
 
 const EXAMPLE1: &'static str = "\
