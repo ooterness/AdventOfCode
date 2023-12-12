@@ -2,12 +2,25 @@
 /// Copyright 2023 by Alex Utter
 
 use aocfetch;
+use std::collections::HashMap;
+
+struct Cache {
+    repeat: usize,
+    cache: HashMap<(usize,usize),usize>,
+}
 
 struct Puzzle {
-    wmask: u64,
+    width: usize,
     mask0: u64,
     mask1: u64,
     runs: Vec<usize>,
+    rsum: usize,
+}
+
+impl Cache {
+    fn new(repeat: usize) -> Self {
+        Cache {repeat:repeat, cache:HashMap::new()}
+    }
 }
 
 impl Puzzle {
@@ -25,42 +38,73 @@ impl Puzzle {
         // Parse the comma-delimited list of contiguous runs.
         let runs: Vec<usize> = tok[1].split(',')
             .map(|s| s.parse().unwrap()).collect();
-        return Puzzle {wmask:1<<width, mask0:mask0, mask1:mask1, runs:runs};
+        let rsum = runs.iter().sum();
+        return Puzzle {width:width, mask0:mask0, mask1:mask1, runs:runs, rsum:rsum};
     }
 
-    fn consistent(&self, guess:u64) -> bool {
-        // Bit-masks are easy, so check those first.
-        if guess & self.mask0 != 0 {return false;}
-        if guess & self.mask1 != self.mask1 {return false;}
-        // State-machine to cross-check each contiguous run.
-        let mut mask = 1u64; // Starting from LSB...
-        for expected in self.runs.iter() {
-            if mask >= self.wmask {return false;}
-            // Skip any leading 0's.
-            while (mask < self.wmask) && (guess & mask == 0) {mask <<= 1;}
-            // Count contiguous 1's.
-            let mut run = 0;
-            while (mask < self.wmask) && (guess & mask != 0) {mask <<= 1; run += 1;}
-            if run != *expected {return false;}
-            // Must leave a gap between each run.
-            mask <<= 1;
+    fn mask(&self, bidx:usize) -> u64 {
+        1u64 << (bidx % (self.width + 1))
+    }
+
+    fn rnext(&self, ridx:usize) -> usize {
+        self.runs[ridx % self.runs.len()]
+    }
+
+    // Is a run of zeros or ones consistent with the provided masks?
+    fn consistent0(&self, bmin:usize, bmax:usize) -> bool {
+        (bmin..bmax).all(|b| self.mask1 & self.mask(b) == 0)
+    }
+    fn consistent1(&self, bmin:usize, bmax:usize) -> bool {
+        (bmin..bmax).all(|b| self.mask0 & self.mask(b) == 0)
+    }
+
+    // Count the number of solutions from the given initial state:
+    //  * cache = Shared cache object.
+    //  * bidx = Leftmost starting position for the next run.
+    //  * ridx = Number of runs already placed.
+    //  * rsum = Total width of runs placed so far. 
+    fn search(&self, cache: &mut Cache, bidx:usize, ridx:usize, rsum:usize) -> usize {
+        // Has this solution been cached?
+        if let Some(x) = cache.cache.get(&(bidx, ridx)) {return *x;}
+        // Precalculate various quantities...
+        let rmax = cache.repeat * self.runs.len();      // Number of runs
+        let rrem = cache.repeat * self.rsum - rsum;     // Remaining run size
+        let wmax = cache.repeat * (self.width+1) - 1;   // Output width
+        let wrem = rrem + rmax - ridx - 1;              // Including min gaps
+        // Quickly eliminate impossible states.
+        if bidx + wrem > wmax {return 0;}               // Negative slack :(
+        // How many options for placing the next run?
+        let slack = wmax - (bidx + wrem);
+        // Test each possible position against the mask requirements...
+        let mut total = 0usize;
+        let rnext = self.rnext(ridx);
+        for bskip in 0..=slack {
+            let bmid = bidx + bskip;    // Start of run
+            let bmax = bmid + rnext;    // End of run
+            if !self.consistent0(bidx, bmid) {break;}   // Stop early?
+            if !self.consistent1(bmid, bmax) {continue;}
+            if ridx + 1 == rmax {                       // Final run?
+                if self.consistent0(bmax, wmax) {total += 1;}
+            } else if self.consistent0(bmax, bmax+1) {  // Gap OK?
+                total += self.search(cache, bmax+1, ridx+1, rsum+rnext);
+            }
         }
-        let rmask = !(mask-1);  // Remaining MSBs must all be zero.
-        return (guess & rmask) == 0;
+        cache.cache.insert((bidx, ridx), total);
+        return total;
     }
 
-    fn count(&self) -> usize {
-        // Try each possible combination of inputs...
-        return (0..self.wmask).filter(|g| self.consistent(*g)).count();
+    // Shortcut for starting a full search.
+    fn count(&self, repeat:usize) -> usize {
+        self.search(&mut Cache::new(repeat), 0, 0, 0)
     }
 }
 
 fn part1(input: &str) -> usize {
-    input.trim().lines().map(|s| Puzzle::new(s).count()).sum()
+    input.trim().lines().map(|s| Puzzle::new(s).count(1)).sum()
 }
 
 fn part2(input: &str) -> usize {
-    0   // TODO
+    input.trim().lines().map(|s| Puzzle::new(s).count(5)).sum()
 }
 
 const EXAMPLE: &'static str = "\
@@ -77,7 +121,7 @@ fn main() {
 
     // Unit tests on provided examples
     assert_eq!(part1(EXAMPLE), 21);
-    assert_eq!(part2(EXAMPLE), 0);
+    assert_eq!(part2(EXAMPLE), 525152);
 
     // Solve for real input.
     println!("Part 1: {}", part1(input.trim()));
