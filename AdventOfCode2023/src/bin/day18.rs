@@ -2,7 +2,10 @@
 /// Copyright 2023 by Alex Utter
 
 use aocfetch;
+use std::cmp::max;
+use std::cmp::min;
 use std::collections::HashMap;
+use std::collections::HashSet;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 struct Rc(isize, isize);
@@ -10,76 +13,100 @@ const DIR_N: Rc = Rc(-1,  0);
 const DIR_S: Rc = Rc( 1,  0);
 const DIR_W: Rc = Rc( 0, -1);
 const DIR_E: Rc = Rc( 0,  1);
-const DIRECTIONS: [Rc;4] = [DIR_N, DIR_W, DIR_S, DIR_E];
-
-fn get_didx(label: &str) -> Option<usize> {
-    match label {
-        "U" => Some(0),
-        "L" => Some(1),
-        "D" => Some(2),
-        "R" => Some(3),
-        _   => None,
-    }
-}
-
-fn flip_didx(idx: usize) -> usize {
-    (idx + 2) % 4
-}
 
 impl Rc {
     fn add(&self, other: Rc) -> Self {
         Rc(self.0 + other.0, self.1 + other.1)
     }
+
+    fn mul(&self, other: usize) -> Self {
+        Rc(self.0 * other as isize, self.1 * other as isize)
+    }
+
+    fn len(&self) -> usize {
+        (self.0.abs() + self.1.abs()) as usize
+    }
 }
 
-type DirMask = [bool;4];
-const MASK_NONE: DirMask = [false, false, false, false];
+fn sorted_set<T: std::cmp::Ord>(x: HashSet<T>) -> Vec<T> {
+    let mut tmp: Vec<T> = x.into_iter().collect();
+    tmp.sort(); return tmp;
+}
 
 struct Trench {
-    color: HashMap<Rc, u32>,
-    holes: HashMap<Rc, DirMask>,
+    posn: Rc,               // Current position
+    segs: HashMap<Rc, Rc>,  // Start, delta
 }
 
 impl Trench {
-    fn new(input: &str) -> Self {
-        let mut color = HashMap::new();
-        let mut holes = HashMap::new();
-        let mut posn = Rc(0,0);
+    fn new() -> Self {
+        Trench { posn:Rc(0,0), segs:HashMap::new() }
+    }
+
+    fn part1(input: &str) -> Self {
+        let mut tmp = Trench::new();
         for line in input.trim().lines() {
             let tok: Vec<&str> = line.trim().split(' ').collect();
-            let dir = get_didx(&tok[0]).unwrap();
-            let src = flip_didx(dir);
-            let qty = usize::from_str_radix(&tok[1], 10).unwrap();
-            let clr = u32::from_str_radix(&tok[2][2..8], 16).unwrap();
-            for _ in 0..qty {
-                color.insert(posn, clr);
-                holes.entry(posn).or_insert(MASK_NONE)[dir] = true;
-                posn = posn.add(DIRECTIONS[dir]);
-                holes.entry(posn).or_insert(MASK_NONE)[src] = true;
-            }
+            let seg = match tok[0] {
+                "U" => DIR_N,
+                "D" => DIR_S,
+                "L" => DIR_W,
+                "R" => DIR_E,
+                _   => panic!("Invalid direction"),
+            }.mul(usize::from_str_radix(&tok[1], 10).unwrap());
+            tmp.append(seg);
         }
-        assert_eq!(posn, Rc(0,0));
-        return Trench { color:color, holes:holes };
+        assert_eq!(tmp.posn, Rc(0,0));
+        return tmp;
+    }
+
+    fn part2(input: &str) -> Self {
+        const DIRECTIONS: [Rc;4] = [DIR_E, DIR_S, DIR_W, DIR_N];
+        let mut tmp = Trench::new();
+        for line in input.trim().lines() {
+            let tok: Vec<&str> = line.trim().split(' ').collect();
+            let hex = usize::from_str_radix(&tok[2][2..8], 16).unwrap();
+            let seg = DIRECTIONS[hex % 4].mul(hex / 16);
+            tmp.append(seg);
+        }
+        assert_eq!(tmp.posn, Rc(0,0));
+        return tmp;
+    }
+
+    fn append(&mut self, delta: Rc) {
+        self.segs.insert(self.posn, delta);
+        self.posn = self.posn.add(delta);
+    }
+
+    fn contains(&self, rc0: Rc) -> bool {
+        // Add a half-meter offset by scaling everything 2x.
+        let rr = 2*rc0.0 + 1;
+        let cc = 2*rc0.1 + 1;
+        // Count line-crossings from (R0,C0) to (R0,+inf).
+        let cross = self.segs.iter()
+            .map(|(rc,dd)| (min(2*rc.0, 2*rc.0+2*dd.0),
+                            max(2*rc.0, 2*rc.0+2*dd.0),
+                            2*rc.1))
+            .filter(|(r0,r1,c0)| *r0 < rr && rr < *r1 && cc < *c0);
+        return (cross.count() % 2) > 0;
+    }
+
+    fn perimeter(&self) -> usize {
+        self.segs.iter().map(|s| s.1.len()).sum()
     }
 
     fn area(&self) -> usize {
-        // Find bounding box.
-        let rmin = self.holes.keys().map(|rc| rc.0).min().unwrap();
-        let rmax = self.holes.keys().map(|rc| rc.0).max().unwrap();
-        let cmin = self.holes.keys().map(|rc| rc.1).min().unwrap();
-        let cmax = self.holes.keys().map(|rc| rc.1).max().unwrap();
-        // Scanning each diagonal D=R+C, count spaces in the interior.
-        let mut area = self.holes.len();
-        for d in (rmin+cmin)..=(rmax+cmax) {
-            let mut inside = false;
-            for c in cmin..=cmax {
-                match self.holes.get(&Rc(d-c,c)) {
-                    None => if inside {area += 1;},
-                    Some([false, true, false, true]) => {inside = !inside;},  // -
-                    Some([true, false, false, true]) => {inside = !inside;},  // L
-                    Some([false, true, true, false]) => {inside = !inside;},  // 7
-                    Some([true, false, true, false]) => {inside = !inside;},  // |
-                    _ => (),
+        // Find all unique row and column coordinates.
+        let rr = sorted_set(self.segs.keys().map(|rc| rc.0).collect());
+        let cc = sorted_set(self.segs.keys().map(|rc| rc.1).collect());
+        // For each rectangular section, test if it is inside the loop.
+        let mut area = 1 + self.perimeter() / 2;
+        for r in 1..rr.len() {
+            for c in 1..cc.len() {
+                if self.contains(Rc(rr[r-1], cc[c-1])) {
+                    let dr = rr[r] - rr[r-1];
+                    let dc = cc[c] - cc[c-1];
+                    area += (dr * dc) as usize;
                 }
             }
         }
@@ -88,11 +115,11 @@ impl Trench {
 }
 
 fn part1(input: &str) -> usize {
-    Trench::new(input).area()
+    Trench::part1(input).area()
 }
 
 fn part2(input: &str) -> usize {
-    0
+    Trench::part2(input).area()
 }
 
 const EXAMPLE: &'static str = "\
@@ -117,7 +144,7 @@ fn main() {
 
     // Unit tests on provided examples
     assert_eq!(part1(EXAMPLE), 62);
-    assert_eq!(part2(EXAMPLE), 0);
+    assert_eq!(part2(EXAMPLE), 952408144115);
 
     // Solve for real input.
     println!("Part 1: {}", part1(input.trim()));
