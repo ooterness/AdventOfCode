@@ -27,6 +27,8 @@ struct State {
     states: Vec<bool>,              // State of all modules
     count0: usize,                  // Cumulative low pulses
     count1: usize,                  // Cumulative high pulses
+    countb: usize,                  // Count button presses
+    countf: usize,                  // Count low pulses to specific index
 }
 
 struct Network {
@@ -65,12 +67,19 @@ impl Module {
     }
 
     // Register output connections.
-    fn connect(&mut self, line: &str, labels: &HashMap<String,usize>) -> Vec<usize> {
+    fn connect(&mut self, line: &str, labels: &mut HashMap<String,usize>) -> Vec<usize> {
         // Parse the output list and lookup each destination index.
         let (_, _, dstr) = Module::parse(line);
         for lbl in dstr.split(',') {
-            let didx = labels.get(lbl.trim()).cloned();
-            self.outputs.push(didx.unwrap_or(usize::MAX));
+            if let Some(didx) = labels.get(lbl.trim()) {
+                // This label already exists.
+                self.outputs.push(*didx);
+            } else {
+                // Create a new label (no corresponding module).
+                let new_idx = labels.len();
+                self.outputs.push(new_idx);
+                labels.insert(lbl.to_string(), new_idx);
+            }
         }
         return self.outputs.clone();
     }
@@ -123,7 +132,7 @@ impl Network {
         }
         // Second pass registers input and output connections.
         for (n,line) in input.trim().lines().enumerate() {
-            for dst in net.modules[n].connect(line, &net.labels).into_iter() {
+            for dst in net.modules[n].connect(line, &mut net.labels).into_iter() {
                 if dst < net.modules.len() {
                     net.modules[dst].accept(n, &mut net.states);
                 }
@@ -136,7 +145,7 @@ impl Network {
     fn init(&self) -> State {
         State {
             states: vec![false; self.states],
-            count0: 0, count1: 0,
+            count0: 0, count1: 0, countb: 0, countf: 0,
         }
     }
 
@@ -150,13 +159,17 @@ impl Network {
     }
 
     // Press the button and run to completion.
-    fn press(&self, state:&mut State) {
+    fn press(&self, state:&mut State, filter:Option<usize>) {
         let bcast: usize = *self.labels.get("broadcaster").unwrap();
         let mut queue = VecDeque::<Pulse>::new();
         queue.push_back((bcast, bcast, false));
+        state.countb += 1;
         while let Some((src, dst, val)) = queue.pop_front() {
             if val {state.count1 += 1;}
             else   {state.count0 += 1;}
+            if let Some(n) = filter {
+                if dst == n && !val {state.countf += 1;}
+            }
             if DEBUG >= 2 {
                 println!("{} {} -> {}",
                     self.module_name(src),
@@ -174,13 +187,17 @@ impl Network {
 fn part1(input: &str) -> usize {
     let net = Network::new(input);
     let mut state = net.init();
-    for _ in 0..1000 {net.press(&mut state);}
+    for _ in 0..1000 {net.press(&mut state, None);}
     if DEBUG >= 1 {println!("TALLY: lo x {}, hi x {}", state.count0, state.count1);}
     return state.count0 * state.count1;
 }
 
-fn part2(_input: &str) -> usize {
-    0
+fn part2(input: &str) -> usize {
+    let net = Network::new(input);
+    let rxn = Some(net.labels["rx"]);
+    let mut state = net.init();
+    while state.countf == 0 {net.press(&mut state, rxn);}
+    return state.countb;
 }
 
 const EXAMPLE1: &'static str = "\
