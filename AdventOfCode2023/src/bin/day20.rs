@@ -193,6 +193,7 @@ fn part1(input: &str) -> usize {
 }
 
 fn part2(input: &str) -> usize {
+    // TODO: This approach is far too slow; still running after 24 hours.
     let net = Network::new(input);
     let rxn = Some(net.labels["rx"]);
     let mut state = net.init();
