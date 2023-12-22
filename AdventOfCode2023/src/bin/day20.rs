@@ -2,18 +2,20 @@
 /// Copyright 2023 by Alex Utter
 
 use aocfetch;
+use num::integer::lcm;
 use std::collections::HashMap;
 use std::collections::VecDeque;
 
 const DEBUG: usize = 0;
 
 // All possible types for a given module.
-type SrcMap = HashMap<usize, usize>;
-type Pulse = (usize, usize, bool);
+type SrcMap = HashMap<usize, usize>;    // Source index, state index
+type Pulse = (usize, usize, bool);      // Source, destination, value
 enum Action {
     Flop(usize),    // Flip-flop module, toggle on low pulse
     Conj(SrcMap),   // Conjunction, NAND previous pulse each input
     Bcast,          // Broadcast, repeat input to all outputs
+    Output,         // Outputs with no corresponding module
 }
 
 struct Module {
@@ -49,37 +51,48 @@ impl Module {
     }
 
     // Create a placeholder module from its description.
-    fn create(line: &str, net: &mut Network) {
+    fn create(line: &str, net: &Network) -> Self {
         // Parse the type and label; ignore outputs for now.
         let (ch, lbl, _) = Module::parse(line.trim());
-        let idx = net.modules.len();
         let typ = match ch {
-            '%' => {net.states += 1; Action::Flop(net.states-1)},
+            '%' => Action::Flop(net.states),
             '&' => Action::Conj(SrcMap::new()),
             _   => Action::Bcast,
         };
-        net.labels.insert(lbl.to_string(), idx);
-        net.modules.push( Module {
+        Module {
             label: lbl.to_string(),
-            index: idx, mtype: typ,
+            index: net.modules.len(),
+            mtype: typ,
             outputs: Vec::new(),
-        } );
+        }
+    }
+
+    // Create an output module.
+    fn output(lbl: &str, net: &Network) -> Self {
+        Module {
+            label: lbl.to_string(),
+            index: net.modules.len(),
+            mtype: Action::Output,
+            outputs: Vec::new(),
+        }
+    }
+
+    // Create a list of unregistered outputs.
+    fn new_outputs<'a>(line: &'a str, net: &Network) -> Vec<&'a str> {
+        // Parse the output list and lookup each destination index.
+        let (_, _, dstr) = Module::parse(line);
+        return dstr.split(',').map(|s| s.trim())
+            .filter(|s| net.labels.get(*s) == None)
+            .collect();
     }
 
     // Register output connections.
-    fn connect(&mut self, line: &str, labels: &mut HashMap<String,usize>) -> Vec<usize> {
+    fn connect(&mut self, line: &str, labels: &HashMap<String,usize>) -> Vec<usize> {
         // Parse the output list and lookup each destination index.
         let (_, _, dstr) = Module::parse(line);
         for lbl in dstr.split(',') {
-            if let Some(didx) = labels.get(lbl.trim()) {
-                // This label already exists.
-                self.outputs.push(*didx);
-            } else {
-                // Create a new label (no corresponding module).
-                let new_idx = labels.len();
-                self.outputs.push(new_idx);
-                labels.insert(lbl.to_string(), new_idx);
-            }
+            let didx = labels.get(lbl.trim());
+            self.outputs.push(*didx.unwrap());
         }
         return self.outputs.clone();
     }
@@ -112,6 +125,7 @@ impl Module {
             Action::Bcast => {
                 out = Some(val);
             },
+            Action::Output => {},
         }
         // If a pulse was generated, propagate it to all outputs.
         if let Some(x) = out {
@@ -126,19 +140,30 @@ impl Network {
     // Create a network from its description.
     fn new(input: &str) -> Self {
         let mut net = Network { labels:HashMap::new(), modules:Vec::new(), states:0usize };
-        // First pass creates labels and placeholder modules.
+        // First pass creates labels and functional modules.
         for line in input.trim().lines() {
-            Module::create(line, &mut net);
+            net.add(Module::create(line, &net));
         }
-        // Second pass registers input and output connections.
+        // Second pass creates non-functional output modules.
+        for line in input.trim().lines() {
+            for lbl in Module::new_outputs(line, &net) {
+                net.add(Module::output(lbl, &net));
+            }
+        }
+        // Third pass registers input and output connections.
         for (n,line) in input.trim().lines().enumerate() {
-            for dst in net.modules[n].connect(line, &mut net.labels).into_iter() {
-                if dst < net.modules.len() {
-                    net.modules[dst].accept(n, &mut net.states);
-                }
+            for dst in net.modules[n].connect(line, &net.labels).into_iter() {
+                net.modules[dst].accept(n, &mut net.states);
             }
         }
         return net;
+    }
+
+    // Add the designated module.
+    fn add(&mut self, module: Module) {
+        if let Action::Flop(_) = module.mtype {self.states += 1;}
+        self.labels.insert(module.label.clone(), module.index);
+        self.modules.push(module);
     }
 
     // Create the initial state for this network.
@@ -159,7 +184,7 @@ impl Network {
     }
 
     // Press the button and run to completion.
-    fn press(&self, state:&mut State, filter:Option<usize>) {
+    fn press(&self, state:&mut State, filter:Option<(usize,bool)>) {
         let bcast: usize = *self.labels.get("broadcaster").unwrap();
         let mut queue = VecDeque::<Pulse>::new();
         queue.push_back((bcast, bcast, false));
@@ -167,8 +192,8 @@ impl Network {
         while let Some((src, dst, val)) = queue.pop_front() {
             if val {state.count1 += 1;}
             else   {state.count0 += 1;}
-            if let Some(n) = filter {
-                if dst == n && !val {state.countf += 1;}
+            if let Some((n,v)) = filter {
+                if dst == n && val == v {state.countf += 1;}
             }
             if DEBUG >= 2 {
                 println!("{} {} -> {}",
@@ -182,6 +207,31 @@ impl Network {
             }
         }
     }
+
+    // For a given named output, identify the upstream source.
+    fn source(&self, index: usize) -> Option<usize> {
+        for module in self.modules.iter() {
+            if module.outputs.contains(&index) {
+                return Some(module.index);
+            }
+        }
+        return None;    // No modules with the requested output.
+    }
+
+    // Identify upstream sources for the given conjunction module.
+    fn upstream(&self, index: usize) -> Option<Vec<usize>> {
+        if let Action::Conj(src) = &self.modules[index].mtype {
+            return Some(src.keys().cloned().collect());
+        }
+        return None;    // No such module or not a conjunction
+    }
+
+    // Press button until the specified module receives a pulse.
+    fn first(&self, filter:(usize,bool)) -> usize {
+        let mut state = self.init();
+        while state.countf == 0 {self.press(&mut state, Some(filter));}
+        return state.countb;
+    }
 }
 
 fn part1(input: &str) -> usize {
@@ -193,12 +243,14 @@ fn part1(input: &str) -> usize {
 }
 
 fn part2(input: &str) -> usize {
-    // TODO: This approach is far too slow; still running after 24 hours.
     let net = Network::new(input);
-    let rxn = Some(net.labels["rx"]);
-    let mut state = net.init();
-    while state.countf == 0 {net.press(&mut state, rxn);}
-    return state.countb;
+    // The relevant module is a conjunction of several periodic inputs.
+    let source = net.source(net.labels["rx"]).unwrap();
+    let upstream: Vec<usize> = net.upstream(source).unwrap();
+    let period: Vec<usize> = upstream.iter()
+        .map(|n| net.first((*n,false))).collect();
+    // Return the LCM, rather than trying to count "rx" directly.
+    return period.into_iter().fold(1usize, |n,p| lcm(n, p));
 }
 
 const EXAMPLE1: &'static str = "\
