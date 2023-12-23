@@ -126,6 +126,7 @@ fn part1(input: &str) -> usize {
 }
 
 fn part2(input: &str) -> usize {
+    // TODO: Faster algorithm? This takes a few hours on the full input.
     Maze::new(input, true).longest()
 }
 

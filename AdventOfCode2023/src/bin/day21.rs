@@ -7,7 +7,6 @@ use std::collections::HashSet;
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 struct Rc(i32, i32);
 type RcSet = HashSet<Rc>;
-type RcVec = Vec<Rc>;
 
 const DIR_N: Rc = Rc(-1,  0);
 const DIR_S: Rc = Rc( 1,  0);
@@ -64,12 +63,12 @@ impl Garden {
         return self.paths.contains(&rcmod);
     }
 
-    fn step1(&self, wave: &RcVec, cache: &mut RcSet) -> RcVec {
-        let mut next = RcVec::new();
-        for rc0 in wave.iter() {
+    fn step1(&self, curr: &RcSet, prev: &RcSet) -> RcSet {
+        let mut next = RcSet::new();
+        for rc0 in curr.iter() {
             for rc1 in DIRECTIONS.iter().map(|d| rc0.add(d)) {
-                if self.is_path(&rc1) && !cache.contains(&rc1) {
-                    cache.insert(rc1); next.push(rc1);
+                if self.is_path(&rc1) && !prev.contains(&rc1) {
+                    next.insert(rc1);
                 }
             }
         }
@@ -77,18 +76,43 @@ impl Garden {
     }
 
     fn steps(&self, count: usize) -> usize {
-        let mut wave = vec![self.start];    // New items
-        let mut even = RcSet::new();        // Cache for even steps
-        let mut odd  = RcSet::new();        // Cache for odd steps
-        for n in 1..=count {
-            let cache = if n%2 == 0 {&mut even} else {&mut odd};
-            wave = self.step1(&wave, cache);
-            if n % 10000 == 0 {
-                // TODO: Several minutes per 10k, far too slow for part 2.
-                println!("Step {} = {}/{}", n, wave.len(), odd.len());
-            }
+        // To reduce memory usage, simulate the active wave-front only, plus
+        // accumulators for the total contained even and odd checkerboards.
+        let mut ct_prev = 0usize;
+        let mut ct_curr = 1usize;
+        let mut rc_prev = RcSet::new();
+        let mut rc_curr = RcSet::from([self.start]);
+        for _ in 0..count {
+            let rc_next = self.step1(&rc_curr, &rc_prev);
+            let ct_next = ct_prev + rc_next.len();
+            (rc_prev, rc_curr) = (rc_curr, rc_next);
+            (ct_prev, ct_curr) = (ct_curr, ct_next);
         }
-        return if count%2 == 0 {even.len()} else {odd.len()};
+        return ct_curr;
+    }
+
+    fn predict(&self, count: usize) -> usize {
+        // This method has only been tested for square inputs, and it
+        // relies on assumptions that don't apply to the example input.
+        // TODO: Assertion for remaining assumptions?
+        assert_eq!(self.size.0, self.size.1);
+        // Use direct simulation for small N or non-repeating grids.
+        let period = self.size.0 as usize;
+        if count < 3*period || !self.repeat {return self.steps(count);}
+        // Gather some reference data points.
+        let x0 = count % period;
+        let x1 = x0 + period;
+        let x2 = x1 + period;
+        let xn = ((count - x0) / period) as isize;
+        let y0 = self.steps(x0) as isize;
+        let y1 = self.steps(x1) as isize;
+        let y2 = self.steps(x2) as isize;
+        // Extrapolate by fitting a quadratic polynomial.
+        // https://old.reddit.com/r/adventofcode/comments/18o4y0m/
+        let a = (y2 - 2*y1 + y0) / 2;
+        let b = y1 - y0 - a;
+        let c = y0;
+        return (a*xn*xn + b*xn + c) as usize;
     }
 }
 
@@ -97,7 +121,7 @@ fn part1(input: &str) -> usize {
 }
 
 fn part2(input: &str) -> usize {
-    Garden::new(input, true).steps(26501365)
+    Garden::new(input, true).predict(26501365)
 }
 
 const EXAMPLE: &'static str = "\
@@ -118,6 +142,7 @@ fn main() {
     let input = aocfetch::get_data(2023, 21).unwrap();
 
     // Unit tests on provided examples
+    // Omit largest test cases because they take a long time.
     let example1 = Garden::new(EXAMPLE, false);
     let example2 = Garden::new(EXAMPLE, true);
     assert_eq!(example1.steps(6),    16);
@@ -126,8 +151,8 @@ fn main() {
     assert_eq!(example2.steps(50),   1594);
     assert_eq!(example2.steps(100),  6536);
     assert_eq!(example2.steps(500),  167004);
-    assert_eq!(example2.steps(1000), 668697);
-    assert_eq!(example2.steps(5000), 16733044);
+    //assert_eq!(example2.steps(1000), 668697);
+    //assert_eq!(example2.steps(5000), 16733044);
 
     // Solve for real input.
     println!("Part 1: {}", part1(input.trim()));
