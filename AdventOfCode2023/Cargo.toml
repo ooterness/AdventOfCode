@@ -6,3 +6,4 @@ edition = "2021"
 [dependencies]
 aocfetch = { git = "https://github.com/ooterness/AdventOfCode.git" }
 num = "0.4"
+rand = "0.8.5"
