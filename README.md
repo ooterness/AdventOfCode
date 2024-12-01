@@ -75,3 +75,9 @@ Back to Rust.
 The Rust crate contains one binary per solution. To solve Day 19, run "cargo run --bin day19".
 
 Environment: Windows 10 / Cargo 1.66.1
+
+# 2024
+
+The Rust crate contains one binary per solution. To solve Day 19, run "cargo run --bin day19".
+
+Environment: Pop!_OS 22.04 / Cargo 1.80.1
