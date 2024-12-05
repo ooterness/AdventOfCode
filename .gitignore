@@ -1,5 +1,5 @@
 Cargo.lock
+*.bat
 *.sh
 */input
 */target
-
