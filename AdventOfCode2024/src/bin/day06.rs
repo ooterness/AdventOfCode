@@ -91,12 +91,14 @@ impl State {
         }
     }
 
-    fn path(&self) -> HashSet<Posn> {
+    fn path(&self) -> (HashSet<Posn>, HashSet<Posn>) {
         let mut guard = self.guard;
-        let mut visit = HashSet::new();
+        let mut visit_posn = HashSet::new();
+        let mut visit_next = HashSet::new();
         loop {
-            if !guard.inside(&self.size) {return visit;}
-            visit.insert(guard.rc.clone());
+            if !guard.inside(&self.size) {return (visit_posn, visit_next);}
+            visit_posn.insert(guard.rc.clone());
+            visit_next.insert(guard.next());
             if self.map.contains(&guard.next()) {
                 guard.rotate();
             } else {
@@ -107,23 +109,20 @@ impl State {
 }
 
 fn part1(input: &str) -> usize {
+    // Trace the guard's path, counting unique tiles.
     let init = State::new(input);
-    return init.path().len();
+    return init.path().0.len();
 }
 
 fn part2(input: &str) -> usize {
+    // Trace the guard's original path, then try placing an
+    // obstacle at each location they would have visited.
     let init = State::new(input);
     let mut count = 0usize;
-    for r in 0..init.size.0 {
-        for c in 0..init.size.1 {
-            // Is there already something at this location?
-            if init.guard.rc.0 == r && init.guard.rc.1 == c {continue;}
-            if init.map.contains(&(r,c)) {continue;}
-            // Otherwise, place obstacle and test if the new path forms a loop.
-            let mut temp = init.clone();
-            temp.map.insert((r,c));
-            if temp.is_loop() {count += 1;}
-        }
+    for rc in init.path().1.into_iter() {
+        let mut temp = init.clone();
+        temp.map.insert(rc);
+        if temp.is_loop() {count += 1;}
     }
     return count;
 }
