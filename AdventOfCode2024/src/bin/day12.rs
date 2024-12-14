@@ -72,9 +72,55 @@ impl Region {
         return total;
     }
 
-    fn price(&self) -> usize {
+    // Count corners by inspecting a 2x2 kernel.
+    fn corners(&self, r:usize, c:usize) -> usize {
+        let w = self.rc.contains(&Rc::new(r+0, c+0)) as usize;
+        let x = self.rc.contains(&Rc::new(r+0, c+1)) as usize;
+        let y = self.rc.contains(&Rc::new(r+1, c+0)) as usize;
+        let z = self.rc.contains(&Rc::new(r+1, c+1)) as usize;
+        return match (w, x, y, z) {
+            (1, 0, 0, 1) => 2,  // Diagonal gap
+            (0, 1, 1, 0) => 2,
+            (1, 0, 0, 0) => 1,  // Outside corner
+            (0, 1, 0, 0) => 1,
+            (0, 0, 1, 0) => 1,
+            (0, 0, 0, 1) => 1,
+            (0, 1, 1, 1) => 1,  // Inside corner
+            (1, 0, 1, 1) => 1,
+            (1, 1, 0, 1) => 1,
+            (1, 1, 1, 0) => 1,
+            _            => 0,  // All other cases
+        }
+    }
+
+    // Count sides in a shape, including internal sides.
+    fn sides(&self) -> usize {
+        let rmin = self.rc.iter().map(|rc| rc.r).min().unwrap() - 1;
+        let rmax = self.rc.iter().map(|rc| rc.r).max().unwrap() + 1;
+        let cmin = self.rc.iter().map(|rc| rc.c).min().unwrap() - 1;
+        let cmax = self.rc.iter().map(|rc| rc.c).max().unwrap() + 1;
+        let mut count = 0usize;
+        for r in rmin..rmax {
+            for c in cmin..cmax {
+                count += self.corners(r, c);
+            }
+            if VERBOSE {
+                let row: String = (cmin..cmax)
+                    .map(|c| char::from_digit(self.corners(r,c) as u32, 10).unwrap()).collect();
+                println!("{}", row);
+            }
+        }
+        return count;
+    }
+
+    fn price1(&self) -> usize {
         if VERBOSE {println!("{} -> {} x {}", self.ch, self.area(), self.perimeter());}
         self.area() * self.perimeter()
+    }
+
+    fn price2(&self) -> usize {
+        if VERBOSE {println!("{} -> {} x {}", self.ch, self.area(), self.sides());}
+        self.area() * self.sides()
     }
 }
 
@@ -84,7 +130,7 @@ impl Garden {
         let mut plants: HashMap<char, HashSet<Rc>> = HashMap::new();
         for (r,row) in input.trim().lines().enumerate() {
             for (c,ch) in row.trim().chars().enumerate() {
-                plants.entry(ch).or_insert(HashSet::new()).insert(Rc::new(r,c));
+                plants.entry(ch).or_insert(HashSet::new()).insert(Rc::new(r+1,c+1));
             }
         }
         // For each plant type, extract contiguous regions.
@@ -97,18 +143,23 @@ impl Garden {
         return garden;
     }
 
-    fn price(&self) -> usize {
+    fn price1(&self) -> usize {
         if VERBOSE {println!("Garden with {} regions:", self.reg.len());}
-        self.reg.iter().map(|r| r.price()).sum()
+        self.reg.iter().map(|r| r.price1()).sum()
+    }
+
+    fn price2(&self) -> usize {
+        if VERBOSE {println!("Garden with {} regions:", self.reg.len());}
+        self.reg.iter().map(|r| r.price2()).sum()
     }
 }
 
 fn part1(input: &str) -> usize {
-    Garden::new(input).price()
+    Garden::new(input).price1()
 }
 
 fn part2(input: &str) -> usize {
-    0 //???
+    Garden::new(input).price2()
 }
 
 const EXAMPLE1: &'static str = "\
@@ -136,6 +187,21 @@ const EXAMPLE3: &'static str = "\
     MIIISIJEEE
     MMMISSJEEE";
 
+const EXAMPLE4: &'static str = "\
+    EEEEE
+    EXXXX
+    EEEEE
+    EXXXX
+    EEEEE";
+
+const EXAMPLE5: &'static str = "\
+    AAAAAA
+    AAABBA
+    AAABBA
+    ABBAAA
+    ABBAAA
+    AAAAAA";
+
 fn main() {
     // Fetch input from server.
     let input = aocfetch::get_data(2024, 12).unwrap();
@@ -143,6 +209,11 @@ fn main() {
     assert_eq!(part1(EXAMPLE1), 140);
     assert_eq!(part1(EXAMPLE2), 772);
     assert_eq!(part1(EXAMPLE3), 1930);
+    assert_eq!(part2(EXAMPLE1), 80);
+    assert_eq!(part2(EXAMPLE2), 436);
+    assert_eq!(part2(EXAMPLE3), 1206);
+    assert_eq!(part2(EXAMPLE4), 236);
+    assert_eq!(part2(EXAMPLE5), 368);
 
     println!("Part 1: {}", part1(&input));
     println!("Part 2: {}", part2(&input));
