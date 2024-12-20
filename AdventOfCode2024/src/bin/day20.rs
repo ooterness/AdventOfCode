@@ -91,31 +91,30 @@ impl Wallhack {
         *self.cost1.get(&self.grid.goal).unwrap()
     }
 
-    fn cost_thru(&self, skip:&Rc) -> Vec<usize> {
-        let mut cost = Vec::new();
-        let adj = self.grid.adj(skip);
-        for c1 in adj.iter().filter_map(|rc| self.cost1.get(rc)) {
-            for c2 in adj.iter().filter_map(|rc| self.cost2.get(rc)) {
-                let new_cost = c1 + c2 + 2;
-                if new_cost < self.cost_base() {cost.push(new_cost);}
+    fn count_hacks(&self, skip:usize, save:usize) -> usize {
+        let mut count = 0usize;
+        for (prev, c1) in self.cost1.iter() {
+            for (next, c2) in self.cost2.iter() {
+                // Is Manhattan distance within the wallhack range?
+                let dist = prev.0.abs_diff(next.0) + prev.1.abs_diff(next.1);
+                if dist > skip {continue;}
+                // Any cost savings to this move?
+                let new_cost = c1 + c2 + dist;
+                if new_cost + save <= self.cost_base() {count += 1;}
             }
         }
-        return cost;
+        return count;
     }
 }
 
-// How many wallhacks save at least 100 steps?
+// How many 2-step wallhacks save at least 100 steps?
 fn part1(input: &str) -> usize {
-    let grid = Wallhack::new(input);
-    let base = grid.cost_base();
-    return grid.grid.walls.iter()
-        .map(|rc| grid.cost_thru(rc))
-        .map(|cvec| cvec.into_iter().filter(|c| c+100 <= base).count())
-        .sum();
+    Wallhack::new(input).count_hacks(2, 100)
 }
 
+// How many 20-step wallhacks save at least 100 steps?
 fn part2(input:&str) -> usize {
-    0 //???
+    Wallhack::new(input).count_hacks(20, 100)
 }
 
 const EXAMPLE: &'static str = "\
@@ -141,7 +140,11 @@ fn main() {
 
     let example = Wallhack::new(EXAMPLE);
     assert_eq!(example.cost_base(), 84);
-    assert_eq!(example.cost_thru(&(7,6)).into_iter().min().unwrap(), 20);
+    assert_eq!(example.count_hacks(2, 20), 5);
+    assert_eq!(example.count_hacks(2, 64), 1);
+    assert_eq!(example.count_hacks(20, 72), 29);
+    assert_eq!(example.count_hacks(20, 74), 7);
+    assert_eq!(example.count_hacks(20, 76), 3);
 
     println!("Part 1: {}", part1(&input));
     println!("Part 2: {}", part2(&input));
