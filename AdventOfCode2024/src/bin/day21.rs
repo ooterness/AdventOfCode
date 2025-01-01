@@ -5,13 +5,11 @@ use aocfetch;
 use std::collections::HashMap;
 use std::collections::HashSet;
 
-type Rc = (i8, i8);             // Row, column
-const KEYPAD_NUM: &'static str = "789\n456\n123\n.0A";
-const KEYPAD_DIR: &'static str = ".^A\n<v>";
+type Rc = (i8, i8);                 // Row, column (posn or delta)
 
 struct Keypad {
-    keys: HashSet<Rc>,          // Valid key locations
-    posn: HashMap<char, Rc>,    // Location of each key
+    keys: HashSet<Rc>,              // Valid key locations
+    posn: HashMap<char, Rc>,        // Location of each key
 }
 
 impl Keypad {
@@ -27,120 +25,136 @@ impl Keypad {
         return Keypad { keys:keys, posn:posn };
     }
 
-    // Horizontal-first path from "prev" to "next".
-    fn hpath(&self, prev:Rc, next:Rc) -> Option<Vec<char>> {
-        let mut cmds = Vec::new();
-        let mut posn = prev;
-        while posn.1 < next.1 {posn.1 += 1; cmds.push('>'); if !self.keys.contains(&posn) {return None;}}
-        while posn.1 > next.1 {posn.1 -= 1; cmds.push('<'); if !self.keys.contains(&posn) {return None;}}
-        while posn.0 < next.0 {posn.0 += 1; cmds.push('v'); if !self.keys.contains(&posn) {return None;}}
-        while posn.0 > next.0 {posn.0 -= 1; cmds.push('^'); if !self.keys.contains(&posn) {return None;}}
-        cmds.push('A');
-        return Some(cmds);
-    }
-    
-    // Vertical-first path from "prev" to "next".
-    fn vpath(&self, prev:Rc, next:Rc) -> Option<Vec<char>> {
-        let mut cmds = Vec::new();
-        let mut posn = prev;
-        while posn.0 < next.0 {posn.0 += 1; cmds.push('v'); if !self.keys.contains(&posn) {return None;}}
-        while posn.0 > next.0 {posn.0 -= 1; cmds.push('^'); if !self.keys.contains(&posn) {return None;}}
-        while posn.1 < next.1 {posn.1 += 1; cmds.push('>'); if !self.keys.contains(&posn) {return None;}}
-        while posn.1 > next.1 {posn.1 -= 1; cmds.push('<'); if !self.keys.contains(&posn) {return None;}}
-        cmds.push('A');
-        return Some(cmds);
-    }
-
-    // Prepare any valid command sequence to enter the requested keys.
-    // (This is sufficient for all by the innermost keypad, since all
-    //  sub-sequences start and end at "A" there is no relevant history.)
-    fn seq_any(&self, keys: &Vec<char>) -> Vec<char> {
-        let mut cmds = Vec::new();
-        let mut posn = self.posn[&'A'];     // From home position...
-        // Expand the key-sequence, always taking the first valid branch.
-        for ch in keys.iter() {
-            let next = self.posn[ch];       // Locate the next key...
-            if let Some(p) = self.hpath(posn, next) {
-                cmds.extend(p.into_iter());
-            } else if let Some(p) = self.vpath(posn, next) {
-                cmds.extend(p.into_iter());
-            } else {
-                panic!("No valid path.");
-            }
-            posn = next;
-        }
-        return cmds;
-    }
-
-    // Prepare all valid command sequences to enter the requested keys.
-    // (Brute-force search for the innermost keypad.)
-    fn seq_all(&self, keys: &Vec<char>) -> Vec<Vec<char>> {
-        let mut cmds: Vec<Vec<char>> = Vec::from([Vec::new()]);
-        let mut posn = self.posn[&'A'];     // From home position...
-        // For each key, try both the horizontal and vertical options.
-        for ch in keys.iter() {
-            let next = self.posn[ch];       // Locate the next key...
-            let prev_cmds = cmds; cmds = Vec::new();
-            for cmd in prev_cmds.into_iter() {
-                if let Some(p) = self.hpath(posn, next)
-                    { let mut tmp = cmd.clone(); tmp.extend(p.into_iter()); cmds.push(tmp); }
-                if let Some(p) = self.vpath(posn, next)
-                    { let mut tmp = cmd.clone(); tmp.extend(p.into_iter()); cmds.push(tmp); }
-            }
-            posn = next;
-        }
-        return cmds;
+    fn contains(&self, key:&Rc) -> bool {
+        self.keys.contains(key)
     }
 }
 
-struct Sequence {
-    code: Vec<char>,
-    kdir: Keypad,
-    knum: Keypad,
+struct Solver {
+    code:   Vec<char>,
+    value:  usize,
+    dirpad: Keypad,
+    numpad: Keypad,
+    cache:  HashMap<(char,char,usize), usize>,
 }
 
-impl Sequence {
+impl Solver {
     fn new(input: &str) -> Self {
-        Sequence {
-            code: input.trim().chars().collect(),
-            kdir: Keypad::new(KEYPAD_DIR),
-            knum: Keypad::new(KEYPAD_NUM),
-        }
-    }
-
-    fn solve(&self, layers: usize) -> usize {
-        let mut best_len = usize::MAX;
-        for init in self.knum.seq_all(&self.code).into_iter() {
-            let mut seq = init;
-            for _ in 1..layers {seq = self.kdir.seq_any(&seq);}
-            if best_len > seq.len() {best_len = seq.len();}
-        }
-        return best_len;
-    }
-
-    fn value(&self) -> usize {
+        // Read the code from the input string.
+        let code: Vec<char> = input.trim().chars().collect();
+        // Calculate numeric value of that code.
         let mut accum = 0usize;
-        for ch in self.code.iter() {
+        for ch in code.iter() {
             if let Some(d) = ch.to_digit(10) {
                 accum = 10*accum + d as usize;
             }
         }
-        return accum;
+        return Solver {
+            code:   code,
+            value:  accum,
+            dirpad: Keypad::new(".^A\n<v>"),
+            numpad: Keypad::new("789\n456\n123\n.0A"),
+            cache:  HashMap::new(),
+        };
     }
 
-    fn part1(&self) -> usize {
-        self.solve(3) * self.value()
+    fn keypad(&self, dpad:bool) -> &Keypad {
+        if dpad {&self.dirpad} else {&self.numpad}
+    }
+
+    fn vmove(&self, delta:i8) -> char {
+        if delta < 0 {'^'} else {'v'}
+    }
+
+    fn hmove(&self, delta:i8) -> char {
+        if delta < 0 {'<'} else {'>'}
+    }
+
+    // Calculate cost of horizontal-first path from "prev" to "next".
+    fn cost_hfirst(&mut self, dpad:bool, prev:Rc, next:Rc, lvl:usize) -> usize {
+        // Does this move have a horizontal component?
+        if prev.1 == next.1 {return usize::MAX;}
+        // Does this move go out of bounds?
+        let corner = (prev.0, next.1);
+        if !self.keypad(dpad).contains(&corner) {return usize::MAX;}
+        // Otherwise, press required key(s) and return to home position.
+        let vmove = self.vmove(next.0 - prev.0);
+        let hmove = self.hmove(next.1 - prev.1);
+        let count = (next.0 - prev.0).abs() as usize
+                  + (next.1 - prev.1).abs() as usize;
+        if prev.0 == next.0 {   // Two-part move (H, A)
+            return self.cost(true, 'A',   hmove, lvl-1)
+                 + self.cost(true, hmove, 'A',   lvl-1) + count;
+        } else {                // Three-part move (H, V, A)
+            return self.cost(true, 'A',   hmove, lvl-1)
+                 + self.cost(true, hmove, vmove, lvl-1)
+                 + self.cost(true, vmove, 'A',   lvl-1) + count;
+        }
+    }
+
+    // Calculate cost of vertical-first path from "prev" to "next".
+    fn cost_vfirst(&mut self, dpad:bool, prev:Rc, next:Rc, lvl:usize) -> usize {
+        // Does this move have a vertical component?
+        if prev.0 == next.0 {return usize::MAX;}
+        // Does this move go out of bounds?
+        let corner = (next.0, prev.1);
+        if !self.keypad(dpad).contains(&corner) {return usize::MAX;}
+        // Otherwise, press required key(s) and return to home position.
+        let vmove = self.vmove(next.0 - prev.0);
+        let hmove = self.hmove(next.1 - prev.1);
+        let count = (next.0 - prev.0).abs() as usize
+                  + (next.1 - prev.1).abs() as usize;
+        if prev.1 == next.1 {   // Two-part move (V, A)
+            return self.cost(true, 'A',   vmove, lvl-1)
+                 + self.cost(true, vmove, 'A',   lvl-1) + count;
+        } else {                // Three-part move (V, H, A)
+            return self.cost(true, 'A',   vmove, lvl-1)
+                 + self.cost(true, vmove, hmove, lvl-1)
+                 + self.cost(true, hmove, 'A',   lvl-1) + count;
+        }
+    }
+
+    // Return the minimum cost of a given move, with memoization.
+    // (Note: Includes return of all preceding layers to the "A" key.)
+    fn cost(&mut self, dpad:bool, prev:char, next:char, lvl:usize) -> usize {
+        let key = (prev, next, lvl);
+        if lvl == 0 {
+            return 0;
+        } else if let Some(&cost) = self.cache.get(&key) {
+            return cost;
+        } else {
+            let prev_rc = self.keypad(dpad).posn[&prev];
+            let next_rc = self.keypad(dpad).posn[&next];
+            let cost = std::cmp::min(
+                self.cost_hfirst(dpad, prev_rc, next_rc, lvl),
+                self.cost_vfirst(dpad, prev_rc, next_rc, lvl));
+            assert!(cost < usize::MAX);
+            if dpad {self.cache.insert(key, cost);}
+            return cost;
+        }
+    }
+    fn solve(&mut self, layers: usize) -> usize {
+        let mut posn = 'A';         // Numpad starts at 'A'
+        let mut accum = 0usize;     // Total cost so far
+        for &ch in self.code.clone().iter() {
+            // Move to each numpad key, then press 'A'.
+            accum += self.cost(false, posn, ch, layers) + 1;
+            posn = ch;
+        }
+        return accum * self.value;
     }
 }
 
 fn part1(input: &str) -> usize {
     input.trim().lines()
-        .map(|code| Sequence::new(code).part1())
+        .map(|code| Solver::new(code).solve(3))
         .sum()
 }
 
-fn part2(_input:&str) -> usize {
-    0 //???
+fn part2(input:&str) -> usize {
+    input.trim().lines()
+        .map(|code| Solver::new(code).solve(26))
+        .sum()
 }
 
 const EXAMPLE: &'static str = "\
