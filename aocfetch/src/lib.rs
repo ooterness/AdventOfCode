@@ -43,7 +43,7 @@ fn read_from_web(year: &usize, day: &usize) -> Result<String, ErrMsg>
             .build().unwrap();
 
         // Manually build header so we don't need reqwest::cookie.
-        let tok = format!("session={}", session);
+        let tok = format!("session={}", session.trim());
         let url = format!("https://adventofcode.com/{}/day/{}/input", year, day);
 
         // Attempt to fetch the input data from the AoC server.
