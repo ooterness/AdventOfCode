@@ -1,4 +1,4 @@
-/// Advent of Code 2025, Day 1
+/// Advent of Code 2025, Day 2
 /// Copyright 2025 by Alex Utter
 
 use aocfetch;
