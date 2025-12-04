@@ -91,7 +91,9 @@ fn main() {
     assert_eq!(part1(&parse(EXAMPLE)), 1227775554);
     assert_eq!(part2(&parse(EXAMPLE)), 4174379265);
 
+    let time = std::time::Instant::now();
     let data = parse(&input);
     println!("Part 1: {}", part1(&data));
     println!("Part 2: {}", part2(&data));
+    println!("Elapsed time: {:.1?}", time.elapsed());
 }

@@ -76,7 +76,9 @@ fn main() {
     assert_eq!(part1(&example), 13);
     assert_eq!(part2(&example), 43);
 
+    let time = std::time::Instant::now();
     let data = Grid::new(&input);
     println!("Part 1: {}", part1(&data));
     println!("Part 2: {}", part2(&data));
+    println!("Elapsed time: {:.1?}", time.elapsed());
 }
