@@ -2,11 +2,12 @@
 /// Copyright 2025 by Alex Utter
 
 use aocfetch;
+use std::collections::HashMap;
 use std::collections::HashSet;
 
 type Rc = (usize, usize);
 
-fn adj(rc: &Rc) -> [Rc;8] {
+fn rc_adj(rc: &Rc) -> [Rc;8] {
     [(rc.0-1, rc.1-1), (rc.0-1, rc.1), (rc.0-1, rc.1+1),
      (rc.0,   rc.1-1),                 (rc.0,   rc.1+1),
      (rc.0+1, rc.1-1), (rc.0+1, rc.1), (rc.0+1, rc.1+1)]
@@ -14,34 +15,48 @@ fn adj(rc: &Rc) -> [Rc;8] {
 
 #[derive(Clone)]
 struct Grid {
-    data: HashSet<Rc>,
+    data: HashMap<Rc, usize>,
 }
 
 impl Grid {
     fn new(input: &str) -> Self {
-        let mut tmp = Self { data: HashSet::new() };
+        let mut tmp = Self { data: HashMap::new() };
         for (r,line) in input.trim().lines().enumerate() {
             for (c,ch) in line.trim().chars().enumerate() {
-                if ch == '@' { tmp.data.insert((r+1, c+1)); }
+                if ch == '@' {
+                    let new_rc = (r+1, c+1);
+                    let mut new_ct = 0usize;
+                    for old_rc in rc_adj(&new_rc).iter() {
+                        if let Some(old_ct) = tmp.data.get_mut(old_rc) {
+                            *old_ct += 1; new_ct += 1;
+                        }
+                    }
+                    tmp.data.insert(new_rc, new_ct);
+                }
             }
         }
         return tmp;
     }
 
     fn accessible(&self) -> HashSet<Rc> {
-        let mut result = HashSet::new();
-        for rc in self.data.iter() {
-            let count = adj(rc).iter()
-                .filter_map(|p| self.data.get(p))
-                .count();
-            if count < 4 { result.insert(rc.clone()); }
-        }
-        return result;
+        self.data.iter()
+            .filter( |(_,ct)| **ct < 4 )
+            .map( |(rc,_)| rc.clone() )
+            .collect()
     }
 
     fn prune(&mut self) -> usize {
         let tmp = self.accessible();
-        for rc in tmp.iter() { self.data.remove(rc); }
+        for rc in tmp.iter() {
+            self.data.remove(rc);
+        }
+        for rc in tmp.iter() {
+            for old_rc in rc_adj(rc).iter() {
+                if let Some(old_ct) = self.data.get_mut(&old_rc) {
+                    *old_ct -= 1;
+                }
+            }
+        }
         return tmp.len();
     }
 }
