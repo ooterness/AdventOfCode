@@ -55,19 +55,16 @@ impl Problem {
     }
 
     fn simplify(&self) -> Self {
-        // Combine all overlapping ranges:
-        //  * Put all unchecked ranges in a queue.
-        //  * For each item in the queue:
-        //      * Test against the simplified range set.
-        //      * Pop any that overlap.
-        //      * Fold overlapping range(s) into a single output.
-        //      * Append the combined range to the simplified set.
+        // Combine all overlapping ranges. For each input range:
+        //  * Test against the simplified range set.
+        //  * Pop any that overlap.
+        //  * Fold overlapping range(s) into a single output.
+        //  * Append the combined range to the simplified set.
         let mut accum = LinkedList::new();
-        let mut queue = self.fresh.clone();
-        while let Some(next) = queue.pop() {
+        for next in self.fresh.iter() {
             let comb:Range = accum
-                .extract_if( |prev| overlap(&next, prev) )
-                .fold(next, |acc,prev| combine(&acc, &prev));
+                .extract_if( |prev| overlap(next, prev) )
+                .fold(*next, |acc,prev| combine(&acc, &prev));
             accum.push_back(comb);
         }
         return Problem {
