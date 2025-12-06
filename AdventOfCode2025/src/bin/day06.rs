@@ -9,8 +9,7 @@ struct Problem {
 }
 
 impl Problem {
-    fn new(input: &str) -> Self {
-        let op = input.chars().next().unwrap();
+    fn new(op: char) -> Self {
         return Problem { dat:Vec::new(), op:op };
     }
 
@@ -28,14 +27,16 @@ struct ProblemSet {
 }
 
 impl ProblemSet {
-    fn new(input: &str) -> Self {
-        // Read the input grid.
+    // Read input using Part 1 rules.
+    fn parse1(input: &str) -> Self {
+        // Read the input grid, one block at a time.
         let mut grid: Vec<Vec<i64>> = Vec::new();
         let mut problems: Vec<Problem> = Vec::new();
         for row in input.trim().lines() {
             if row.contains('+') || row.contains('*') {
                 for item in row.trim().split_whitespace() {
-                    problems.push(Problem::new(item));
+                    let op = item.chars().next().unwrap();
+                    problems.push(Problem::new(op));
                 }
             } else {
                 grid.push(row.trim().split_whitespace()
@@ -52,33 +53,68 @@ impl ProblemSet {
         }
         return ProblemSet { problems:problems };
     }
+
+    // Read input using Part 2 rules.
+    fn parse2(input: &str) -> Self {
+        // Read the input grid, one character at a time.
+        let mut grid: Vec<Vec<char>> = Vec::new();
+        let mut posn: Vec<usize> = Vec::new();
+        let mut problems: Vec<Problem> = Vec::new();
+        for row in input.lines() {
+            if row.contains('+') || row.contains('*') {
+                for (c,ch) in row.chars().enumerate() {
+                    if ch == '+' || ch == '*' {
+                        posn.push(c);
+                        problems.push(Problem::new(ch));
+                    }
+                }
+            } else {
+                grid.push(row.chars().collect());
+            }
+        }
+        // Add each column of numbers to the appropriate object.
+        // (Start from the column with the operand, then scan right...)
+        for p in 0..problems.len() {
+            let mut c: usize = posn[p];
+            loop {
+                let col: String = grid.iter()
+                    .filter_map( |row| row.get(c) ).collect();
+                if let Ok(n) = col.trim().parse::<i64>() {
+                    problems[p].dat.push(n); c += 1;
+                } else {
+                    break;
+                }
+            }
+        }
+        return ProblemSet { problems:problems };
+    }
 }
 
-fn part1(input: &ProblemSet) -> i64 {
-    input.problems.iter().map(|p| p.solve()).sum()
+fn part1(input: &str) -> i64 {
+    let problems = ProblemSet::parse1(input);
+    return problems.problems.iter().map(|p| p.solve()).sum();
 }
 
-fn part2(input: &ProblemSet) -> i64 {
-    0
+fn part2(input: &str) -> i64 {
+    let problems = ProblemSet::parse2(input);
+    return problems.problems.iter().map(|p| p.solve()).sum();
 }
 
 const EXAMPLE: &'static str = "\
-    123 328  51 64
-     45 64  387 23
-      6 98  215 314
-    *   +   *   +";
+123 328  51 64
+ 45 64  387 23
+  6 98  215 314
+*   +   *   +";
 
 fn main() {
     // Fetch input from server.
     let input = aocfetch::get_data(2025, 6).unwrap();
 
-    let example = ProblemSet::new(EXAMPLE);
-    assert_eq!(part1(&example), 4277556);
-    assert_eq!(part2(&example), 0);
+    assert_eq!(part1(EXAMPLE), 4277556);
+    assert_eq!(part2(EXAMPLE), 3263827);
 
     let time = std::time::Instant::now();
-    let data = ProblemSet::new(&input);
-    println!("Part 1: {}", part1(&data));
-    println!("Part 2: {}", part2(&data));
+    println!("Part 1: {}", part1(&input));
+    println!("Part 2: {}", part2(&input));
     println!("Elapsed time: {:.1?}", time.elapsed());
 }
