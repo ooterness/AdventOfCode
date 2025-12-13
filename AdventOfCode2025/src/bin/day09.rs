@@ -6,6 +6,7 @@ use std::cmp::max;
 use std::cmp::min;
 use std::collections::HashSet;
 
+const DEBUG: bool = false;
 type RowCol = (i64, i64);
 
 struct Polygon {
@@ -41,10 +42,10 @@ impl Polygon {
 
     // Given two corners, normalize the bounding rectangle.
     fn rect(&self, m:usize, n:usize) -> (i64, i64, i64, i64) {
-        ( min(self.rc[m].0, self.rc[n].0),
-          max(self.rc[m].0, self.rc[n].0),
-          min(self.rc[m].1, self.rc[n].1),
-          max(self.rc[m].1, self.rc[n].1) )
+        ( min(self.rc[m].0, self.rc[n].0),      // Row-min
+          max(self.rc[m].0, self.rc[n].0),      // Row-max
+          min(self.rc[m].1, self.rc[n].1),      // Col-min    
+          max(self.rc[m].1, self.rc[n].1) )     // Col-max
     }
 
     // Fetch normalized perimeter segment #N as a rectangle.
@@ -74,7 +75,7 @@ impl Polygon {
 
     // Check if a given point is inside the polygon.
     fn contains(&self, rc:RowCol) -> bool {
-        // Any point on the perimeter is "inside".
+        // Any point on the perimeter is "inside" the polygon.
         for m in 0..self.rc.len() {
             let (r0, r1, c0, c1) = self.seg(m);
             if r0 <= rc.0 && rc.0 <= r1 && c0 <= rc.1 && rc.1 <= c1 { return true; }
@@ -83,9 +84,29 @@ impl Polygon {
         let mut count = 0usize;
         for m in 0..self.rc.len() {
             let (r0, r1, c0, c1) = self.seg(m);
-            if c0 == c1 && r0 <= rc.0 && rc.0 <= r1 && rc.1 > c0 { count += 1; }
+            if c0 == c1 && r0 <= rc.0 && rc.0 < r1 && rc.1 > c0 { count += 1; }
         }
         return (count % 2) == 1;
+    }
+
+    // Print a rectangle for debugging.
+    fn print(&self, m:usize, n:usize) {
+        let rmin = self.rows.iter().min().unwrap().clone();
+        let rmax = self.rows.iter().max().unwrap().clone();
+        let cmin = self.cols.iter().min().unwrap().clone();
+        let cmax = self.cols.iter().max().unwrap().clone();
+        let (r0, r1, c0, c1) = self.rect(m, n);
+        let ok = self.check_perimeter(m, n);
+        println!("Corners {}-{} = {} ({})", m, n, self.area(m, n), ok);
+        for r in rmin..=rmax {
+            let mut line = String::from("  ");
+            for c in cmin..=cmax {
+                line += if self.rc.contains(&(r,c)) {"#"}
+                    else if r0 <= r && r <= r1 && c0 <= c && c <= c1 {"O"}
+                    else {"."};
+            }
+            println!("{}", line);
+        }
     }
 }
 
@@ -101,14 +122,14 @@ fn part1(input: &str) -> i64 {
     return best;
 }
 
-// 3436560 is too low???
 fn part2(input: &str) -> i64 {
     let poly = Polygon::new(input);
     let mut best = 0i64;
     for m in 0..poly.rc.len()-1 {
         for n in m+1..poly.rc.len() {
             let next = poly.area(m, n);
-            if next > best && poly.check_perimeter(m, n) { best = next; }
+            if DEBUG { poly.print(m, n); }
+            if next > best && poly.check_perimeter(m, n) {best = next; }
         }
     }
     return best;
