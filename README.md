@@ -1,6 +1,6 @@
 # AdventOfCode
 
-This is repository holds my solutions to the [Advent of Code](https://adventofcode.com/) puzzles.
+This repository holds my solutions to the [Advent of Code](https://adventofcode.com/) puzzles.
 
 It is also the home of the [aocfetch](./aocfetch) crate.
 
